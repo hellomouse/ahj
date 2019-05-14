@@ -1,0 +1,24 @@
+{
+  "name": "ahj",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hellomouse/ahj.git"
+  },
+  "author": "hellomouse",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hellomouse/ahj/issues"
+  },
+  "homepage": "https://github.com/hellomouse/ahj#readme",
+  "dependencies": {
+    "debug": "^4.1.1",
+    "read": "^1.0.7",
+    "srp-bigint": "^0.2.1"
+  }
+}
