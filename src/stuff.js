@@ -1,5 +1,6 @@
 // DEMO AND RANDOM CODE
 const crypto = require('crypto');
+const util = require('util');
 const stream = require('stream');
 const srp = require('srp-bigint');
 const {
@@ -7,9 +8,21 @@ const {
   aeadEncrypt,
   aeadDecryptNext
 } = require('./protocol.js');
-const Client = require('./client.js');
-const Server = require('./server.js');
+const {
+  Client,
+  ClientConnection
+} = require('./client.js');
+const {
+  Server,
+  Session,
+  ServerConnection
+} = require('./server.js');
 const SRP_PARAMS = srp.params[2048];
+
+process.on('unhandledRejection', err => {
+  console.log(err);
+  console.log(err.code);
+});
 
 /**
  * Read n bytes from a stream
@@ -102,7 +115,7 @@ let server = new Server({
   clients: { [identity]: verifier }
 });
 server.listen();
-let clientConnection = new Client.ClientConnection({
+let clientConnection = new ClientConnection({
   host: 'localhost',
   port,
   mode: 'INIT',
@@ -117,8 +130,9 @@ server.on('newConnection', conn => {
   let connectionNum = num++;
   connections.push(conn);
   conn.on('connected', async () => {
-    for (;;) {
-      let message = await conn.readMessage();
+    let message;
+    while (message) {
+      message = await conn.readMessage();
       console.log(`client => server (${connectionNum}): ${message.toString()}`);
     }
   });
@@ -127,7 +141,7 @@ server.on('newConnection', conn => {
   await clientConnection.connect();
   console.log('connected');
   (async () => {
-    let clientConnection2 = new Client.ClientConnection({
+    let clientConnection2 = new ClientConnection({
       host: 'localhost',
       port,
       mode: 'RESUME',
@@ -139,13 +153,15 @@ server.on('newConnection', conn => {
     });
     await clientConnection2.connect();
     cli.context.clientConnection2 = clientConnection2;
-    for (;;) {
-      let message = await clientConnection2.readMessage();
+    let message = true;
+    while (message) {
+      message = await clientConnection2.readMessage();
       console.log('server => client (2):', message.toString());
     }
   })();
-  for (;;) {
-    let message = await clientConnection.readMessage();
+  let message;
+  while (message) {
+    message = await clientConnection.readMessage();
     console.log('server => client (1):', message.toString());
   }
 })();

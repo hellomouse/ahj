@@ -73,6 +73,8 @@ class ClientConnection extends EventEmitter {
     this.sessionKey = null;
     this.state = 'DISCONNECTED';
     this.socketError = null;
+    // for debugging and connection identification
+    this.localPort = null;
 
     this.debugLog(`init: mode ${this.mode} to ${this.host}:${this.port}`);
   }
@@ -81,8 +83,7 @@ class ClientConnection extends EventEmitter {
    * @param {String} message
    */
   debugLog(message) {
-    let localPort = this.socket ? this.socket.localPort : null;
-    debug(`[${localPort}/${this.sessionIdN}] ${message}`);
+    debug(`[${this.localPort}/${this.sessionIdN}] ${message}`);
   }
   /**
    * Set state of connection and emit event
@@ -124,8 +125,14 @@ class ClientConnection extends EventEmitter {
     try {
       return await aeadDecryptNext(this.sessionKey, nonce, this.consumer);
     } catch (err) {
-      // failed verification, kill the connection
-      throw this.destroyWithError('Server message failed authentication');
+      switch (err.code) {
+        case 'STREAM_CLOSED': return false; // connection ended, do nothing
+        case 'AUTHENTICATION_FAILED':
+          // failed authentication, terminate connection
+          throw this.destroyWithError('Server message failed authentication',
+            'AUTHENTICATION_FAILED');
+        default: throw err;
+      }
     }
   }
   /** Called internally on socket close */
@@ -143,11 +150,13 @@ class ClientConnection extends EventEmitter {
   /**
    * Destroy the socket with an error message
    * @param {String} message Error message
+   * @param {String} code Error code (in error.code)
    * @return {Error}
    */
-  destroyWithError(message) {
+  destroyWithError(message, code) {
     this.debugLog('destroy ' + message);
     let error = new Error(message);
+    if (code) error.code = code;
     this.socket.destroy(error);
     return error;
   }
@@ -178,6 +187,7 @@ class ClientConnection extends EventEmitter {
         this.socket.removeListener('close', closeHandler);
       };
       let connectHandler = () => {
+        this.localPort = this.socket.localPort;
         cleanUpEventHandlers();
         resolve();
       };
@@ -259,5 +269,7 @@ class ClientConnection extends EventEmitter {
   }
 }
 
-module.exports = Client;
-Client.ClientConnection = ClientConnection;
+module.exports = {
+  Client,
+  ClientConnection
+};

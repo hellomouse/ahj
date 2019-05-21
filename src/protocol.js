@@ -1,3 +1,4 @@
+const utils = require('./utils.js');
 const crypto = require('crypto');
 
 /** Read n bytes from a stream */
@@ -19,7 +20,9 @@ class StreamConsumer {
    */
   async readNextChunk() {
     let next = await this.iterator.next();
-    if (next.done) throw new Error('Stream is closed');
+    if (next.done) {
+      throw utils.errCode('Stream is closed', 'STREAM_CLOSED');
+    }
     let chunk = next.value;
     this.currentLength += chunk.length;
     this.chunks.push(chunk);
@@ -31,7 +34,9 @@ class StreamConsumer {
    * @return {Buffer}
    */
   async read(wantedSize) {
-    if (this.locked) throw new Error('An operation is still in progress');
+    if (this.locked) {
+      throw utils.errCode('An operation is still in progress', 'STREAM_LOCKED');
+    }
     this.locked = true;
     for (;;) {
       if (this.currentLength >= wantedSize) {
@@ -53,7 +58,9 @@ class StreamConsumer {
    * @return {Buffer} What was read, including the specified character
    */
   async readToChar(char) {
-    if (this.locked) throw new Error('An operation is still in progress');
+    if (this.locked) {
+      throw utils.errCode('An operation is still in progress', 'STREAM_LOCKED');
+    }
     this.locked = true;
     // there should only be one item in chunks or fewer when we start
     let chunk = this.chunks[0] || await this.readNextChunk();
@@ -112,7 +119,11 @@ async function aeadDecryptNext(key, nonce, consumer) {
   // read and decrypt message
   let out = decipher.update(await consumer.read(length));
   decipher.setAuthTag(await consumer.read(16));
-  decipher.final();
+  try {
+    decipher.final();
+  } catch (err) {
+    throw utils.errCode('Unable to authenticate data', 'AUTHENTICATION_FAILED');
+  }
   return out;
 }
 

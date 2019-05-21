@@ -20,5 +20,9 @@
     "debug": "^4.1.1",
     "read": "^1.0.7",
     "srp-bigint": "^0.2.1"
+  },
+  "devDependencies": {
+    "eslint": "^5.16.0",
+    "eslint-config-google": "^0.13.0"
   }
 }

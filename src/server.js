@@ -180,8 +180,14 @@ class ServerConnection extends EventEmitter {
     try {
       return await aeadDecryptNext(this.sessionKey, nonce, this.consumer);
     } catch (err) {
-      // failed verification, kill the connection
-      throw this.destroyWithError('Client message failed authentication');
+      switch (err.code) {
+        case 'STREAM_CLOSED': return false; // connection ended, do nothing
+        case 'AUTHENTICATION_FAILED':
+          // failed authentication, terminate connection
+          throw this.destroyWithError('Server message failed authentication',
+            'AUTHENTICATION_FAILED');
+        default: throw err;
+      }
     }
   }
   /** Internal method called after connection closed */
@@ -297,6 +303,8 @@ class ServerConnection extends EventEmitter {
   }
 }
 
-module.exports = Server;
-Server.Session = Session;
-Server.ServerConnection = ServerConnection;
+module.exports = {
+  Server,
+  Session,
+  ServerConnection
+};
