@@ -14,3 +14,5 @@
   * SOCKS interface
 * Configuration reader
 * Circular buffers, maybe
+* ???
+* Profit
