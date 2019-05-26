@@ -25,7 +25,7 @@ class Server extends EventEmitter {
     this.handshakeKey = opts.handshakeKey;
     this.port = opts.port;
     this.clients = opts.clients;
-    /** @type {Map<Number, Session>} */
+    /** @type {Map<Number, ServerSession>} */
     this.sessions = new Map();
     this.server = net.createServer(this.connectionHandler.bind(this));
     /** @type {Set<ServerConnection>} */
@@ -53,13 +53,13 @@ class Server extends EventEmitter {
 }
 
 /** Represents one session */
-class Session extends EventEmitter {
+class ServerSession extends EventEmitter {
   /**
    * The constructor
    * @param {Object} opts
    * @param {Number} opts.sessionId Numerical session id of this session
    * @param {String} opts.owner User (by identity) this session belongs to
-   * @param {Map<Number, Session>} opts.sessions Map of all sessions by id
+   * @param {Map<Number, ServerSession>} opts.sessions Map of all sessions by id
    */
   constructor(opts) {
     super();
@@ -84,7 +84,10 @@ class Session extends EventEmitter {
     let index = this.connections.indexOf(conn);
     if (index < 0) throw new Error('No such connection');
     this.connections.splice(index, 1);
-    if (this.connections.length === 0) this.sessions.delete(this.sessionId);
+    if (this.connections.length === 0) {
+      this.sessions.delete(this.sessionId);
+      this.emit('end');
+    }
   }
 }
 
@@ -96,7 +99,7 @@ class ServerConnection extends EventEmitter {
    * @param {Socket} opts.socket The socket to handle
    * @param {Buffer} opts.handshakeKey Handshake key
    * @param {Object} opts.clients List of client verifiers by identity
-   * @param {Map<Number, Session>} opts.sessions Map of sessions by id
+   * @param {Map<Number, ServerSession>} opts.sessions Map of sessions by id
    */
   constructor(opts) {
     super();
@@ -253,7 +256,7 @@ class ServerConnection extends EventEmitter {
         // in the extraordinarly rare case that we have a collision...
         // (unless you have a few billion clients in which case HOW IS THIS
         // SERVER NOT DEAD YET)
-        session = new Session({
+        session = new ServerSession({
           sessionId: this.sessionIdN,
           owner: identity,
           sessions: this.sessions
@@ -305,6 +308,6 @@ class ServerConnection extends EventEmitter {
 
 module.exports = {
   Server,
-  Session,
+  ServerSession,
   ServerConnection
 };

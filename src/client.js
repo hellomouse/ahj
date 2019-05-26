@@ -9,6 +9,7 @@ const {
   aeadEncrypt
 } = require('./protocol.js');
 const constants = require('./constants.js');
+const utils = require('./utils.js');
 const SRP_PARAMS = srp.params[2048];
 
 /** Represents a client */
@@ -34,6 +35,58 @@ class Client extends EventEmitter {
 
     this.connections = [];
     this.sessionId = null;
+    this.connected = false;
+  }
+  /**
+   * Adds connection to this.connections and adds event listeners
+   * @param {ClientConnection} connection
+   */
+  _handleConnect(connection) {
+    this.connections.push(connection);
+    connection.on('close', () => {
+      this.connections.splice(this.connections.indexOf(connection), 1);
+      if (!this.connections.length) {
+        this.connected = false;
+        this.sessionId = null;
+      }
+    });
+  }
+  /** Do initial connection to server */
+  async connect() {
+    let connection = new ClientConnection({
+      host: this.host,
+      port: this.port,
+      mode: 'INIT',
+      handshakeKey: this.handshakeKey,
+      salt: this.salt,
+      identity: this.identity,
+      password: this.password
+    });
+    await connection.connect();
+    // connected to server
+    this.connected = true;
+    this.sessionId = connection.sessionId;
+    this._handleConnect(connection);
+  }
+  /** Add a connection to the session */
+  async addConnection() {
+    if (!this.connected) throw utils.errCode('Not connected', 'NOT_CONNECTED');
+    let connection = new ClientConnection({
+      host: this.host,
+      port: this.port,
+      mode: 'RESUME',
+      sessionId: this.sessionId,
+      handshakeKey: this.handshakeKey,
+      salt: this.salt,
+      identity: this.identity,
+      password: this.password
+    });
+    await connection.connect();
+    this._handleConnect(connection);
+  }
+  /** End all connections */
+  async close() {
+    for (let connection of this.connections) connection.socket.end();
   }
 }
 
