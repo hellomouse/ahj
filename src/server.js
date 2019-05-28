@@ -1,6 +1,7 @@
 const srp = require('srp-bigint');
 const crypto = require('crypto');
 const EventEmitter = require('events');
+const stream = require('stream');
 const net = require('net');
 const debug = require('debug')('ahj:server');
 const {
@@ -8,6 +9,7 @@ const {
   aeadDecryptNext,
   aeadEncrypt
 } = require('./protocol.js');
+const utils = require('./utils.js');
 const constants = require('./constants.js');
 const SRP_PARAMS = srp.params[2048];
 
@@ -36,7 +38,7 @@ class Server extends EventEmitter {
    * @param {Socket} socket
    */
   connectionHandler(socket) {
-    let connection = new ServerConnection({
+    let connection = new ServerConnection(this, {
       socket,
       handshakeKey: this.handshakeKey,
       clients: this.clients,
@@ -67,7 +69,9 @@ class ServerSession extends EventEmitter {
     this.sessionId = opts.sessionId;
     this.sessions = opts.sessions;
     this.connections = [];
+    this.readStream = new stream.PassThrough();
   }
+
   /**
    * Add a connection to this session
    * @param {ServerConnection} conn
@@ -75,12 +79,16 @@ class ServerSession extends EventEmitter {
   addConnection(conn) {
     if (this.connections.includes(conn)) throw new Error('Already exists!');
     this.connections.push(conn);
+    conn.readStreamWrap = new utils.ConnectionReadStreamWrap(conn);
+    conn.readStreamWrap.pipe(this.readStream);
   }
+
   /**
    * Remove a connection from this session
    * @param {ServerConnection} conn
    */
   removeConnection(conn) {
+    if (conn.readStreamWrap) conn.readStreamWrap.unpipe(this.readStream);
     let index = this.connections.indexOf(conn);
     if (index < 0) throw new Error('No such connection');
     this.connections.splice(index, 1);
@@ -95,14 +103,16 @@ class ServerSession extends EventEmitter {
 class ServerConnection extends EventEmitter {
   /**
    * The constructor
+   * @param {Server} server The server this connection belongs to
    * @param {Object} opts
    * @param {Socket} opts.socket The socket to handle
    * @param {Buffer} opts.handshakeKey Handshake key
    * @param {Object} opts.clients List of client verifiers by identity
    * @param {Map<Number, ServerSession>} opts.sessions Map of sessions by id
    */
-  constructor(opts) {
+  constructor(server, opts) {
     super();
+    this.server = server;
     this.handshakeKey = opts.handshakeKey;
     this.socket = opts.socket;
     this.clients = opts.clients;
@@ -121,6 +131,8 @@ class ServerConnection extends EventEmitter {
     /** @type {Error} */
     this.socketError = null;
     this.remoteHost = `${this.socket.remoteAddress}:${this.socket.remotePort}`;
+    // flow control: whether or not this connection should be written to
+    this.ready = false;
 
     this.debugLog('new connection');
     this._handleConnection();
@@ -144,6 +156,7 @@ class ServerConnection extends EventEmitter {
   /**
    * Send an encrypted message
    * @param {Buffer} buffer
+   * @return {Boolean} Whether or not data should continue to be written
    */
   sendMessage(buffer) {
     if (this.state !== 'CONNECTED') throw new Error('Not connected');
@@ -155,7 +168,7 @@ class ServerConnection extends EventEmitter {
     this.serverMessageCounter++;
     // encrypted message
     let encrypted = aeadEncrypt(this.sessionKey, nonce, buffer);
-    this.socket.write(encrypted);
+    return this.ready = this.socket.write(encrypted);
   }
   /**
    * Destroy the socket with an error message
@@ -202,6 +215,10 @@ class ServerConnection extends EventEmitter {
   }
   /** Called internally to start processing the connection */
   async _handleConnection() {
+    this.socket.on('drain', () => {
+      this.ready = true;
+      this.emit('drain');
+    });
     this.socket.on('error', err => {
       this.debugLog('socket error ' + err);
       this.socketError = err;
@@ -263,6 +280,7 @@ class ServerConnection extends EventEmitter {
         });
         session.addConnection(this);
         this.sessions.set(this.sessionIdN, session);
+        this.server.emit('newSession', session);
         this.debugLog('assigned session id ' + this.sessionIdN);
         break;
       }
@@ -301,6 +319,7 @@ class ServerConnection extends EventEmitter {
     this.debugLog('sent server handshake message');
     // gc the srp instance
     this.srpServer = null;
+    this.ready = true;
     this.setState('CONNECTED');
     this.emit('connected');
   }

@@ -17,6 +17,10 @@ const {
   Session,
   ServerConnection
 } = require('./server.js');
+const {
+  Disassembler,
+  Reassembler
+} = require('./data.js');
 const SRP_PARAMS = srp.params[2048];
 
 process.on('unhandledRejection', err => {
@@ -115,56 +119,27 @@ let server = new Server({
   clients: { [identity]: verifier }
 });
 server.listen();
-let clientConnection = new ClientConnection({
+let client = new Client({
   host: 'localhost',
   port,
-  mode: 'INIT',
   handshakeKey,
   salt,
   identity: identityBuf,
   password
 });
-let connections = [];
-let num = 1;
-server.on('newConnection', conn => {
-  let connectionNum = num++;
-  connections.push(conn);
-  conn.on('connected', async () => {
-    let message;
-    while (message) {
-      message = await conn.readMessage();
-      console.log(`client => server (${connectionNum}): ${message.toString()}`);
-    }
-  });
+server.on('newSession', session => {
+  cli.context.session = session;
+  let reassembler = new Reassembler();
+  session.readStream.pipe(reassembler)
+    .on('data', d => console.log('client => server', d.toString()));
 });
+cli.context.clientDisassembler = new Disassembler(client.connections);
 (async () => {
-  await clientConnection.connect();
-  console.log('connected');
-  (async () => {
-    let clientConnection2 = new ClientConnection({
-      host: 'localhost',
-      port,
-      mode: 'RESUME',
-      sessionId: clientConnection.sessionId,
-      handshakeKey,
-      salt,
-      identity: identityBuf,
-      password
-    });
-    await clientConnection2.connect();
-    cli.context.clientConnection2 = clientConnection2;
-    let message = true;
-    while (message) {
-      message = await clientConnection2.readMessage();
-      console.log('server => client (2):', message.toString());
-    }
-  })();
-  let message;
-  while (message) {
-    message = await clientConnection.readMessage();
-    console.log('server => client (1):', message.toString());
-  }
+  await client.connect();
+  await client.addConnection();
+  await client.addConnection();
+  await client.addConnection();
 })();
-cli.context.connections = connections;
+
 cli.context.server = server;
-cli.context.clientConnection = clientConnection;
+cli.context.client = client;

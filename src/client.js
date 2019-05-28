@@ -1,6 +1,7 @@
 const srp = require('srp-bigint');
 const crypto = require('crypto');
 const EventEmitter = require('events');
+const stream = require('stream');
 const debug = require('debug')('ahj:client');
 const net = require('net');
 const {
@@ -36,6 +37,7 @@ class Client extends EventEmitter {
     this.connections = [];
     this.sessionId = null;
     this.connected = false;
+    this.readStream = new stream.PassThrough();
   }
   /**
    * Adds connection to this.connections and adds event listeners
@@ -43,7 +45,10 @@ class Client extends EventEmitter {
    */
   _handleConnect(connection) {
     this.connections.push(connection);
+    connection.readStreamWrap = new utils.ConnectionReadStreamWrap(connection);
+    connection.readStreamWrap.pipe(this.readStream);
     connection.on('close', () => {
+      connection.readStreamWrap.unpipe(this.readStream);
       this.connections.splice(this.connections.indexOf(connection), 1);
       if (!this.connections.length) {
         this.connected = false;
@@ -128,6 +133,8 @@ class ClientConnection extends EventEmitter {
     this.socketError = null;
     // for debugging and connection identification
     this.localPort = null;
+    // flow control: whether or not this connection should be written to
+    this.ready = false;
 
     this.debugLog(`init: mode ${this.mode} to ${this.host}:${this.port}`);
   }
@@ -150,6 +157,7 @@ class ClientConnection extends EventEmitter {
   /**
    * Send an encrypted message
    * @param {Buffer} buffer
+   * @return {Boolean} Whether or not data should continue to be written
    */
   sendMessage(buffer) {
     if (this.state !== 'CONNECTED') throw new Error('Not connected');
@@ -161,7 +169,7 @@ class ClientConnection extends EventEmitter {
     this.clientMessageCounter++;
     // encrypted message
     let encrypted = aeadEncrypt(this.sessionKey, nonce, buffer);
-    this.socket.write(encrypted);
+    return this.ready = this.socket.write(encrypted);
   }
   /**
    * Get the next message
@@ -221,6 +229,10 @@ class ClientConnection extends EventEmitter {
     this.socketError = null;
     let clientHandshakeNonce = crypto.randomBytes(12);
     this.clientNonce = clientHandshakeNonce.slice(0, 6);
+    this.socket.on('drain', () => {
+      this.ready = true;
+      this.emit('drain');
+    });
     // the 'close' event comes after the 'error' event
     this.socket.on('error', err => {
       this.socketError = err;
@@ -317,6 +329,7 @@ class ClientConnection extends EventEmitter {
     this.sessionKey = this.srpClient.computeK();
     // GC the SRP instance
     this.srpClient = null;
+    this.ready = true;
     this.setState('CONNECTED');
     this.emit('connected');
   }
