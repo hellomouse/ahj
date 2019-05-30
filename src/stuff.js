@@ -17,10 +17,8 @@ const {
   Session,
   ServerConnection
 } = require('./server.js');
-const {
-  Disassembler,
-  Reassembler
-} = require('./data.js');
+const { Disassembler } = require('./disassembler.js');
+const { Reassembler } = require('./reassembler.js');
 const SRP_PARAMS = srp.params[2048];
 
 process.on('unhandledRejection', err => {

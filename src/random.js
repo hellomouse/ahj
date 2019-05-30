@@ -47,9 +47,33 @@ function choose(arr, n) {
   return out;
 }
 
+/**
+ * Get a random sample from a normal distribution
+ * @param {Number} m Mean
+ * @param {Number} s Standard deviation
+ * @return {Number}
+ */
+function normal(m, s) {
+  let x1 = Math.random();
+  let x2 = Math.random();
+  return m + s * Math.sqrt(-2 * Math.log(x1)) * Math.cos(2 * Math.PI * x2);
+}
+
+/**
+ * Get a random sample from a log-normal distribution
+ * @param {Number} m Mean
+ * @param {Number} s Standard deviation
+ * @return {Number}
+ */
+function logNormal(m, s) {
+  return Math.exp(normal(Math.log(m) + s ** 2, Math.log(1 + s ** 2 / m ** 2)));
+}
+
 module.exports = {
   double,
   int,
   fromList,
-  choose
+  choose,
+  normal,
+  logNormal
 };

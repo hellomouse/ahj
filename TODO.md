@@ -1,9 +1,6 @@
 # TODO
 
-* Add padding to client handshake message
-* Add padding to server handshake message
-* Randomness generation utilities
-  * Implement Box-Muller transform for generating normal randomness
+* Add padding to handshakes
 * If performance sucks, remove argument validity checks
 * Turn stuff.js into actual tests
 * Write native module for tun for linux and windows
@@ -11,5 +8,6 @@
 * TCP transit over tunnel (maybe)
   * SOCKS interface
 * Configuration reader
+* Use stream interfaces for connection objects
 * TYPESCRIPT maybe
 * profit
