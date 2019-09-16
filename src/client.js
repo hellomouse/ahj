@@ -13,6 +13,9 @@ const constants = require('./constants.js');
 const utils = require('./utils.js');
 const SRP_PARAMS = srp.params[2048];
 
+const ConnectionModes = constants.ConnectionModes;
+const ConnectionStates = constants.ConnectionStates;
+
 /** Represents a client */
 class Client extends EventEmitter {
   /**
@@ -61,7 +64,7 @@ class Client extends EventEmitter {
     let connection = new ClientConnection({
       host: this.host,
       port: this.port,
-      mode: 'INIT',
+      mode: constants.connectionModes.INIT,
       handshakeKey: this.handshakeKey,
       salt: this.salt,
       identity: this.identity,
@@ -79,7 +82,7 @@ class Client extends EventEmitter {
     let connection = new ClientConnection({
       host: this.host,
       port: this.port,
-      mode: 'RESUME',
+      mode: constants.connectionModes.RESUME,
       sessionId: this.sessionId,
       handshakeKey: this.handshakeKey,
       salt: this.salt,
@@ -102,7 +105,7 @@ class ClientConnection extends EventEmitter {
    * @param {object} opts
    * @param {string} opts.host Server hostname
    * @param {number} opts.port Server port
-   * @param {string} opts.mode Connection mode, either INIT or RESUME
+   * @param {symbol} opts.mode Connection mode, one of constants.connectionModes
    * @param {Buffer} [opts.sessionId] Session id, specify with mode RESUME
    * @param {Buffer} opts.handshakeKey Server handshake key
    * @param {Buffer} opts.salt SRP authentication salt
@@ -129,7 +132,7 @@ class ClientConnection extends EventEmitter {
     this.clientNonce = null;
     this.srpClient = null;
     this.sessionKey = null;
-    this.state = 'DISCONNECTED';
+    this.state = ConnectionStates.DISCONNECTED;
     this.socketError = null;
     // for debugging and connection identification
     this.localPort = null;
@@ -147,7 +150,7 @@ class ClientConnection extends EventEmitter {
   }
   /**
    * Set state of connection and emit event
-   * @param {string} state One of DISCONNECTED, CONNECTING, HANDSHAKING, or CONNECTED
+   * @param {symbol} state One of constants.ConnectionState
    */
   setState(state) {
     this.debugLog(`state ${this.state} => ${state}`);
@@ -160,7 +163,7 @@ class ClientConnection extends EventEmitter {
    * @return {boolean} Whether or not data should continue to be written
    */
   sendMessage(buffer) {
-    if (this.state !== 'CONNECTED') throw new Error('Not connected');
+    if (this.state !== ConnectionStates.CONNECTED) throw new Error('Not connected');
     if (buffer.length > 65535) throw new Error('Buffer is too long');
     // nonce
     let nonce = Buffer.allocUnsafe(12);
@@ -176,7 +179,7 @@ class ClientConnection extends EventEmitter {
    * @return {Buffer}
    */
   async readMessage() {
-    if (this.state !== 'CONNECTED') throw new Error('Not connected');
+    if (this.state !== ConnectionStates.CONNECTED) throw new Error('Not connected');
     // nonce
     let nonce = Buffer.allocUnsafe(12);
     this.serverNonce.copy(nonce);
@@ -198,7 +201,7 @@ class ClientConnection extends EventEmitter {
   }
   /** Called internally on socket close */
   _handleClose() {
-    this.setState('DISCONNECTED');
+    this.setState(ConnectionStates.DISCONNECTED);
     this.clientNonce = null;
     this.serverNonce = null;
     this.socket = null;
@@ -223,8 +226,8 @@ class ClientConnection extends EventEmitter {
   }
   /** Connect to the server */
   async connect() {
-    if (this.state !== 'DISCONNECTED') throw new Error('Not disconnected');
-    this.setState('CONNECTING');
+    if (this.state !== ConnectionStates.DISCONNECTED) throw new Error('Not disconnected');
+    this.setState(ConnectionStates.CONNECTING);
     this.socket = new net.Socket();
     this.socketError = null;
     let clientHandshakeNonce = crypto.randomBytes(12);
@@ -268,7 +271,7 @@ class ClientConnection extends EventEmitter {
     this.debugLog('socket connected');
     this.consumer = new StreamConsumer(this.socket);
     // do handshake
-    this.setState('HANDSHAKING');
+    this.setState(ConnectionStates.HANDSHAKING);
     // init local SRP state
     let srpClientSecret = crypto.randomBytes(32);
     this.srpClient = new srp.Client(
@@ -285,12 +288,12 @@ class ClientConnection extends EventEmitter {
        Total: 258 + identity length + 4 if Mode is RESUME */
     // TODO: pad client handshake message
     let clientMessage = Buffer.allocUnsafe(258 + this.identity.length +
-      (this.mode === 'RESUME' ? 4 : 0));
+      (this.mode === ConnectionModes.RESUME ? 4 : 0));
     let offset = 0;
     clientMessage[offset++] = this.identity.length; // identity length
     offset += this.identity.copy(clientMessage, offset);
-    clientMessage[offset++] = constants.clientHandshake[this.mode]; // mode
-    if (this.mode === 'RESUME') {
+    clientMessage[offset++] = constants.ClientHandshake[this.mode]; // mode
+    if (this.mode === ConnectionModes.RESUME) {
       offset += this.sessionId.copy(clientMessage, offset);
     }
     offset += srpA.copy(clientMessage, offset);
@@ -312,12 +315,12 @@ class ClientConnection extends EventEmitter {
     }
     this.debugLog('received server handshake message');
     switch (serverMessage[0]) {
-      case constants.serverHandshake.OK:
+      case constants.ServerHandshake.OK:
         // everything is good
         break;
-      case constants.serverHandshake.INVALID_SESSION:
+      case constants.ServerHandshake.INVALID_SESSION:
         throw this.destroyWithError('Session identifier is invalid');
-      case constants.serverHandshake.INVALID_IDENTITY:
+      case constants.ServerHandshake.INVALID_IDENTITY:
         throw this.destroyWithError('Invalid identity');
       default:
         throw this.destroyWithError('Invalid server response');
@@ -330,7 +333,7 @@ class ClientConnection extends EventEmitter {
     // GC the SRP instance
     this.srpClient = null;
     this.ready = true;
-    this.setState('CONNECTED');
+    this.setState(ConnectionStates.CONNECTED);
     this.emit('connected');
   }
 }

@@ -13,6 +13,9 @@ const utils = require('./utils.js');
 const constants = require('./constants.js');
 const SRP_PARAMS = srp.params[2048];
 
+const ConnectionModes = constants.ConnectionModes;
+const ConnectionStates = constants.ConnectionStates;
+
 /** @typedef {import('net').Socket} Socket */
 
 /** Represents a server */
@@ -129,7 +132,7 @@ class ServerConnection extends EventEmitter {
     this.srpServer = null;
     /** @type {Buffer} */
     this.sessionKey = null;
-    this.state = 'INIT';
+    this.state = ConnectionStates.INIT;
     /** @type {Error} */
     this.socketError = null;
     this.remoteHost = `${this.socket.remoteAddress}:${this.socket.remotePort}`;
@@ -161,7 +164,7 @@ class ServerConnection extends EventEmitter {
    * @return {boolean} Whether or not data should continue to be written
    */
   sendMessage(buffer) {
-    if (this.state !== 'CONNECTED') throw new Error('Not connected');
+    if (this.state !== ConnectionStates.CONNECTED) throw new Error('Not connected');
     if (buffer.length > 65535) throw new Error('Buffer is too long');
     // nonce
     let nonce = Buffer.allocUnsafe(12);
@@ -188,7 +191,7 @@ class ServerConnection extends EventEmitter {
    * @return {Buffer}
    */
   async readMessage() {
-    if (this.state !== 'CONNECTED') throw new Error('Not connected');
+    if (this.state !== ConnectionStates.CONNECTED) throw new Error('Not connected');
     // nonce
     let nonce = Buffer.allocUnsafe(12);
     this.clientNonce.copy(nonce);
@@ -227,7 +230,7 @@ class ServerConnection extends EventEmitter {
       this.emit('socketError', err);
     });
     this.socket.on('close', errored => {
-      this.setState('DISCONNECTED');
+      this.setState(ConnectionStates.DISCONNECTED);
       this.debugLog('close');
       this._handleClose();
       this.emit('close', errored ? this.socketError : null);
@@ -246,7 +249,7 @@ class ServerConnection extends EventEmitter {
     }
     // client has correct handshake key
     this.debugLog('received client handshake message');
-    this.setState('HANDSHAKING');
+    this.setState(ConnectionStates.HANDSHAKING);
     let offset = 0;
     let identityLength = clientMessage[offset++];
     let identity = clientMessage.slice(offset, offset += identityLength);
@@ -259,14 +262,14 @@ class ServerConnection extends EventEmitter {
     if (!verifier) {
       this.socket.write(aeadEncrypt(
         this.handshakeKey, serverHandshakeNonce,
-        Buffer.from([constants.serverHandshake.INVALID_IDENTITY])
+        Buffer.from([constants.ServerHandshake.INVALID_IDENTITY])
       ));
       this.socket.end();
       this.debugLog('client sent invalid identity');
       return;
     }
     let mode = clientMessage[offset++];
-    if (mode === constants.clientHandshake.INIT) {
+    if (mode === constants.ClientHandshake.INIT) {
       for (;;) {
         this.sessionId = crypto.randomBytes(4);
         this.sessionIdN = this.sessionId.readUInt32BE();
@@ -286,14 +289,14 @@ class ServerConnection extends EventEmitter {
         this.debugLog('assigned session id ' + this.sessionIdN);
         break;
       }
-    } else if (mode === constants.clientHandshake.RESUME) {
+    } else if (mode === constants.ClientHandshake.RESUME) {
       this.sessionId = Buffer.from(clientMessage.slice(offset, offset += 4));
       this.sessionIdN = this.sessionId.readUInt32BE();
       let session = this.sessions.get(this.sessionIdN);
       if (!session) {
         this.socket.write(aeadEncrypt(
           this.handshakeKey, serverHandshakeNonce,
-          Buffer.from([constants.serverHandshake.INVALID_SESSION])
+          Buffer.from([constants.ServerHandshake.INVALID_SESSION])
         ));
         this.socket.end();
         this.debugLog('client requested invalid session');
@@ -312,7 +315,7 @@ class ServerConnection extends EventEmitter {
     // TODO: more padding
     let serverMessage = Buffer.alloc(261);
     offset = 0;
-    serverMessage[offset++] = constants.serverHandshake.OK;
+    serverMessage[offset++] = constants.ServerHandshake.OK;
     offset += this.sessionId.copy(serverMessage, offset);
     offset += srpB.copy(serverMessage, offset);
     this.socket.write(aeadEncrypt(
@@ -322,7 +325,7 @@ class ServerConnection extends EventEmitter {
     // gc the srp instance
     this.srpServer = null;
     this.ready = true;
-    this.setState('CONNECTED');
+    this.setState(ConnectionStates.CONNECTED);
     this.emit('connected');
   }
 }

@@ -1,15 +1,24 @@
 module.exports = {
-  clientHandshake: {
+  ConnectionModes: {
+    INIT: Symbol('INIT'),
+    RESUME: Symbol('RESUME')
+  },
+  ConnectionStates: {
+    DISCONNECTED: Symbol('DISCONNECTED'),
+    CONNECTED: Symbol('CONNECTED'),
+    HANDSHAKING: Symbol('HANDSHAKING'),
+    CONNECTING: Symbol('CONNECTING')
+  },
+  ClientHandshake: {
     INIT: 0,
     RESUME: 1
   },
-  serverHandshake: {
+  ServerHandshake: {
     OK: 0,
     INVALID_SESSION: 1,
     INVALID_IDENTITY: 2
   },
-  messageTypes: {
-    DATA: 0,
+  MessageTypes: {
     CHANNEL_OPEN: 1,
     CHANNEL_OPEN_ACK: 2,
     CHANNEL_CLOSE: 3,
@@ -17,3 +26,6 @@ module.exports = {
     CHANNEL_MESSAGE: 5
   }
 };
+
+exports.ClientHandshake[exports.ConnectionModes.INIT] = exports.ConnectionModes['INIT'];
+exports.ClientHandshake[exports.ConnectionModes.RESUME] = exports.ConnectionModes['RESUME'];
