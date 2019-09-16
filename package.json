@@ -22,7 +22,7 @@
     "srp-bigint": "^0.2.1"
   },
   "devDependencies": {
-    "@hellomouse/eslint-config": "^1.1.3",
+    "@hellomouse/eslint-config": "^1.1.4",
     "eslint": "^6.4.0",
     "eslint-plugin-jsdoc": "^15.9.2"
   }

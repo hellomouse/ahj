@@ -40,7 +40,7 @@ class StreamConsumer {
       throw utils.errCode('An operation is still in progress', 'STREAM_LOCKED');
     }
     this.locked = true;
-    for (;;) {
+    while (true) {
       if (this.currentLength >= wantedSize) {
         let out = Buffer.concat(this.chunks);
         this.chunks = [];
@@ -66,7 +66,7 @@ class StreamConsumer {
     this.locked = true;
     // there should only be one item in chunks or fewer when we start
     let chunk = this.chunks[0] || await this.readNextChunk();
-    for (;;) {
+    while (true) {
       for (let i = 0; i < chunk.length; i++) {
         if (chunk[i] === char) {
           // last chunk is in chunk variable already

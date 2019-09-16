@@ -1,7 +1,6 @@
 const srp = require('srp-bigint');
 const crypto = require('crypto');
 const EventEmitter = require('events');
-const stream = require('stream');
 const debug = require('debug')('ahj:client');
 const net = require('net');
 const {
@@ -11,6 +10,7 @@ const {
 } = require('./protocol.js');
 const constants = require('./constants.js');
 const utils = require('./utils.js');
+const Session = require('./session.js');
 const SRP_PARAMS = srp.params[2048];
 
 const ConnectionModes = constants.ConnectionModes;
@@ -27,6 +27,7 @@ class Client extends EventEmitter {
    * @param {Buffer} opts.salt SRP authentication salt
    * @param {Buffer} opts.identity SRP identity
    * @param {Buffer} opts.password SRP password
+   * @param {object} opts.sessionOptions Session options
    */
   constructor(opts) {
     super();
@@ -37,34 +38,24 @@ class Client extends EventEmitter {
     this.identity = opts.identity;
     this.password = opts.password;
 
-    this.connections = [];
-    this.sessionId = null;
-    this.connected = false;
-    this.readStream = new stream.PassThrough();
+    this.session = new Session(this.sessionOptions);
   }
+
   /**
    * Adds connection to this.connections and adds event listeners
    * @param {ClientConnection} connection
    */
   _handleConnect(connection) {
-    this.connections.push(connection);
-    connection.readStreamWrap = new utils.ConnectionReadStreamWrap(connection);
-    connection.readStreamWrap.pipe(this.readStream);
-    connection.on('close', () => {
-      connection.readStreamWrap.unpipe(this.readStream);
-      this.connections.splice(this.connections.indexOf(connection), 1);
-      if (!this.connections.length) {
-        this.connected = false;
-        this.sessionId = null;
-      }
-    });
+    this.session.addConnection(connection);
+    connection.on('close', () => this.session.removeConnection(connection));
   }
+
   /** Do initial connection to server */
   async connect() {
     let connection = new ClientConnection({
       host: this.host,
       port: this.port,
-      mode: constants.connectionModes.INIT,
+      mode: constants.ConnectionModes.INIT,
       handshakeKey: this.handshakeKey,
       salt: this.salt,
       identity: this.identity,
@@ -72,18 +63,19 @@ class Client extends EventEmitter {
     });
     await connection.connect();
     // connected to server
-    this.connected = true;
-    this.sessionId = connection.sessionId;
+    this.session.connected = true;
+    this.session.sessionId = connection.sessionId;
     this._handleConnect(connection);
   }
+
   /** Add a connection to the session */
   async addConnection() {
-    if (!this.connected) throw utils.errCode('Not connected', 'NOT_CONNECTED');
+    if (!this.session.connected) throw utils.errCode('Not connected', 'NOT_CONNECTED');
     let connection = new ClientConnection({
       host: this.host,
       port: this.port,
-      mode: constants.connectionModes.RESUME,
-      sessionId: this.sessionId,
+      mode: constants.ConnectionModes.RESUME,
+      sessionId: this.session.sessionId,
       handshakeKey: this.handshakeKey,
       salt: this.salt,
       identity: this.identity,
@@ -92,9 +84,10 @@ class Client extends EventEmitter {
     await connection.connect();
     this._handleConnect(connection);
   }
+
   /** End all connections */
   async close() {
-    for (let connection of this.connections) connection.socket.end();
+    this.session.close();
   }
 }
 
@@ -138,8 +131,9 @@ class ClientConnection extends EventEmitter {
     this.localPort = null;
     // flow control: whether or not this connection should be written to
     this.ready = false;
+    this.readStreamWrap = null;
 
-    this.debugLog(`init: mode ${this.mode} to ${this.host}:${this.port}`);
+    this.debugLog(`init: mode ${this.mode.description} to ${this.host}:${this.port}`);
   }
   /**
    * Log a debug message
@@ -153,7 +147,7 @@ class ClientConnection extends EventEmitter {
    * @param {symbol} state One of constants.ConnectionState
    */
   setState(state) {
-    this.debugLog(`state ${this.state} => ${state}`);
+    this.debugLog(`state ${this.state.description} => ${state.description}`);
     this.state = state;
     this.emit('stateChange', state);
   }
@@ -242,6 +236,8 @@ class ClientConnection extends EventEmitter {
       this.debugLog('error ' + err);
       this.emit('socketError', err);
     });
+    // if remote wants to end connection then we should stop sending data
+    this.socket.on('end', () => this.ready = false);
     this.socket.on('close', errored => {
       this._handleClose();
       this.debugLog('close');

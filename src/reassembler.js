@@ -55,10 +55,10 @@ class Reassembler extends stream.Transform {
   /**
    * Process new data
    * @param {Buffer} data
-   * @param {string} encoding Not used
+   * @param {string} _encoding Not used
    * @param {Function} callback
    */
-  _transform(data, encoding, callback) {
+  _transform(data, _encoding, callback) {
     let fragments = Fragment.fromMany(data);
     for (let fragment of fragments) {
       let partial = this.fragmentCache[fragment.id];

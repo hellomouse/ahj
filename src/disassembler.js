@@ -82,6 +82,8 @@ class Disassembler {
    * @return {boolean} Whether or not data should continue to be written
    */
   add(message) {
+    if (!(message instanceof Buffer)) throw new Error('Expected buffer');
+    if (message.length > 65535) throw new Error('Message too long!');
     if (this.messageBuffer.push(message)) {
       this.bufferBytes += message.length + 5;
       debug(`adding message of length ${message.length} ` +
@@ -128,7 +130,6 @@ class Disassembler {
       let allocated = Math.round(random.normal(perConnection, perConnection / 10));
       if (allocated <= 5) continue;
       debug(`sending ${allocated} bytes over connection ${i}`);
-      totalSent += allocated;
       let buf = Buffer.alloc(allocated);
       let used = 0;
       // go through fragment buffer first
@@ -195,12 +196,22 @@ class Disassembler {
           break;
         }
       }
+
+      // edge case: random says to send less bytes than actual message length,
+      // message is small enough that splitting is considered against
+      // result: a whole lot of nothing gets sent
+      // FIXME: there's probably a better way to do this
+      if (!used) continue;
+
       debug(`sending ${util.inspect(buf)} over conn ${i}`);
+      totalSent += allocated;
       dataSent += used;
       activeConnections[i].sendMessage(buf);
     }
-    debug(`sent ${totalSent} bytes total, ${dataSent} bytes useful data ` +
-      `(${dataSent / totalSent * 100}% efficiency)`);
+    if (totalSent) {
+      debug(`sent ${totalSent} bytes total, ${dataSent} bytes useful data ` +
+        `(${dataSent / totalSent * 100}% efficiency)`);
+    }
   }
 }
 

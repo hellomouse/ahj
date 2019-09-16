@@ -1,7 +1,6 @@
 const srp = require('srp-bigint');
 const crypto = require('crypto');
 const EventEmitter = require('events');
-const stream = require('stream');
 const net = require('net');
 const debug = require('debug')('ahj:server');
 const {
@@ -9,11 +8,11 @@ const {
   aeadDecryptNext,
   aeadEncrypt
 } = require('./protocol.js');
-const utils = require('./utils.js');
 const constants = require('./constants.js');
+const Session = require('./session.js');
 const SRP_PARAMS = srp.params[2048];
 
-const ConnectionModes = constants.ConnectionModes;
+// const ConnectionModes = constants.ConnectionModes;
 const ConnectionStates = constants.ConnectionStates;
 
 /** @typedef {import('net').Socket} Socket */
@@ -26,12 +25,14 @@ class Server extends EventEmitter {
    * @param {Buffer} opts.handshakeKey Handshake key
    * @param {number} opts.port Listen port
    * @param {object} opts.clients Client verifiers
+   * @param {object} opts.sessionOptions Session options
    */
   constructor(opts) {
     super();
     this.handshakeKey = opts.handshakeKey;
     this.port = opts.port;
     this.clients = opts.clients;
+    this.sessionOptions = opts.sessionOptions;
     /** @type {Map<number, ServerSession>} */
     this.sessions = new Map();
     this.server = net.createServer(this.connectionHandler.bind(this));
@@ -47,7 +48,8 @@ class Server extends EventEmitter {
       socket,
       handshakeKey: this.handshakeKey,
       clients: this.clients,
-      sessions: this.sessions
+      sessions: this.sessions,
+      sessionOptions: this.sessionOptions
     });
     this.connections.add(connection);
     connection.on('close', () => this.connections.delete(connection));
@@ -60,32 +62,18 @@ class Server extends EventEmitter {
 }
 
 /** Represents one session */
-class ServerSession extends EventEmitter {
+class ServerSession extends Session {
   /**
    * The constructor
    * @param {object} opts
-   * @param {number} opts.sessionId Numerical session id of this session
    * @param {string} opts.owner User (by identity) this session belongs to
    * @param {Map<number, ServerSession>} opts.sessions Map of all sessions by id
    */
   constructor(opts) {
-    super();
+    super(opts);
+    this.connected = true;
     this.owner = opts.owner;
-    this.sessionId = opts.sessionId;
     this.sessions = opts.sessions;
-    this.connections = [];
-    this.readStream = new stream.PassThrough();
-  }
-
-  /**
-   * Add a connection to this session
-   * @param {ServerConnection} conn
-   */
-  addConnection(conn) {
-    if (this.connections.includes(conn)) throw new Error('Already exists!');
-    this.connections.push(conn);
-    conn.readStreamWrap = new utils.ConnectionReadStreamWrap(conn);
-    conn.readStreamWrap.pipe(this.readStream);
   }
 
   /**
@@ -93,13 +81,9 @@ class ServerSession extends EventEmitter {
    * @param {ServerConnection} conn
    */
   removeConnection(conn) {
-    if (conn.readStreamWrap) conn.readStreamWrap.unpipe(this.readStream);
-    let index = this.connections.indexOf(conn);
-    if (index < 0) throw new Error('No such connection');
-    this.connections.splice(index, 1);
+    super.removeConnection(conn);
     if (this.connections.length === 0) {
       this.sessions.delete(this.sessionId);
-      this.emit('end');
     }
   }
 }
@@ -114,6 +98,7 @@ class ServerConnection extends EventEmitter {
    * @param {Buffer} opts.handshakeKey Handshake key
    * @param {object} opts.clients List of client verifiers by identity
    * @param {Map<number, ServerSession>} opts.sessions Map of sessions by id
+   * @param {object} opts.sessionOptions Session options
    */
   constructor(server, opts) {
     super();
@@ -124,6 +109,7 @@ class ServerConnection extends EventEmitter {
     this.sessionId = null;
     this.sessionIdN = null; // numerical version of sessionId
     this.sessions = opts.sessions;
+    this.sessionOptions = opts.sessionOptions;
     this.consumer = null;
     this.clientMessageCounter = 0;
     this.serverMessageCounter = 0;
@@ -138,6 +124,7 @@ class ServerConnection extends EventEmitter {
     this.remoteHost = `${this.socket.remoteAddress}:${this.socket.remotePort}`;
     // flow control: whether or not this connection should be written to
     this.ready = false;
+    this.readStreamWrap = null;
 
     this.debugLog('new connection');
     this._handleConnection();
@@ -154,7 +141,7 @@ class ServerConnection extends EventEmitter {
    * @param {string} state One of DISCONNECTED, CONNECTING, HANDSHAKING, or CONNECTED
    */
   setState(state) {
-    this.debugLog(`state ${this.state} => ${state}`);
+    this.debugLog(`state ${this.state.description} => ${state.description}`);
     this.state = state;
     this.emit('stateChange', state);
   }
@@ -178,11 +165,13 @@ class ServerConnection extends EventEmitter {
   /**
    * Destroy the socket with an error message
    * @param {string} message Error message
+   * @param {string} code Error code (in error.code)
    * @return {Error}
    */
-  destroyWithError(message) {
+  destroyWithError(message, code) {
     this.debugLog('destroy ' + message);
     let error = new Error(message);
+    if (code) error.code = code;
     this.socket.destroy(error);
     return error;
   }
@@ -215,7 +204,7 @@ class ServerConnection extends EventEmitter {
   _handleClose() {
     // remove connection from sessions
     let session = this.sessions.get(this.sessionIdN);
-    if (!session) return; // wat
+    if (!session) return;
     session.removeConnection(this);
   }
   /** Called internally to start processing the connection */
@@ -229,6 +218,8 @@ class ServerConnection extends EventEmitter {
       this.socketError = err;
       this.emit('socketError', err);
     });
+    // if remote wants to end connection then we should stop sending data
+    this.socket.on('end', () => this.ready = false);
     this.socket.on('close', errored => {
       this.setState(ConnectionStates.DISCONNECTED);
       this.debugLog('close');
@@ -270,15 +261,16 @@ class ServerConnection extends EventEmitter {
     }
     let mode = clientMessage[offset++];
     if (mode === constants.ClientHandshake.INIT) {
-      for (;;) {
+      while (true) {
         this.sessionId = crypto.randomBytes(4);
         this.sessionIdN = this.sessionId.readUInt32BE();
         let session = this.sessions.get(this.sessionIdN);
         if (session) continue;
-        // in the extraordinarly rare case that we have a collision...
+        // in the rare case that we have a collision...
         // (unless you have a few billion clients in which case HOW IS THIS
         // SERVER NOT DEAD YET)
         session = new ServerSession({
+          ...this.sessionOptions,
           sessionId: this.sessionIdN,
           owner: identity,
           sessions: this.sessions

@@ -112,7 +112,7 @@ class ConnectionReadStreamWrap extends stream.Readable {
   async _read() {
     if (this.lock) return; // there is already a read operation happening
     this.lock = true;
-    for (;;) {
+    while (true) {
       let data;
       try {
         data = await this.connection.readMessage();

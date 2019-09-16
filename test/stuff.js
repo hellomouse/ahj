@@ -50,7 +50,7 @@ cli.context.StreamConsumer = StreamConsumer;
 let stream1 = new stream.PassThrough();
 let consumer1 = new StreamConsumer(stream1);
 (async () => {
-  for (;;) console.log((await consumer1.read(4)).toString());
+  while (true) console.log((await consumer1.read(4)).toString());
 })();
 cli.context.stream1 = stream1;
 cli.context.consumer = consumer1;
@@ -72,7 +72,7 @@ cli.context.aeadDecryptNext = aeadDecryptNext;
 
 let key = cli.context.key = crypto.randomBytes(32);
 (async () => {
-  for (;;) {
+  while (true) {
     let nonce = await consumer2.read(12);
     console.log('got nonce', nonce);
     let message = await aeadDecryptNext(key, nonce, consumer2);
@@ -105,17 +105,19 @@ let client = new Client({
   password
 });
 server.on('newSession', session => {
-  cli.context.session = session;
-  let reassembler = new Reassembler();
-  session.readStream.pipe(reassembler)
-    .on('data', d => console.log('client => server', d.toString()));
+  cli.context.serverSession = session;
+  session.disassembler.tick();
+  setInterval(() => session.disassembler.tick());
+  session.reassembler.on('data', d => console.log('client => server', d.toString()));
 });
-cli.context.clientDisassembler = new Disassembler(client.connections);
 (async () => {
   await client.connect();
   await client.addConnection();
   await client.addConnection();
   await client.addConnection();
+  cli.context.clientSession = client.session;
+  setInterval(() => client.session.disassembler.tick());
+  client.session.reassembler.on('data', d => console.log('client => server', d.toString()));
 })();
 
 cli.context.server = server;
