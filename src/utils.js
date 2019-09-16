@@ -1,10 +1,13 @@
 // random useful stuff
 const stream = require('stream');
 
+/** @typedef {import('./client.js').ClientConnection} ClientConnection */
+/** @typedef {import('./server.js').ServerConnection} ServerConnection */
+
 /**
  * Create a new Error with a code
- * @param {String} message Error message
- * @param {String} code Error code
+ * @param {string} message Error message
+ * @param {string} code Error code
  * @return {Error}
  */
 function errCode(message, code) {
@@ -17,7 +20,7 @@ function errCode(message, code) {
 class CircularBuffer {
   /**
    * The constructor
-   * @param {Number} size How large the buffer should be
+   * @param {number} size How large the buffer should be
    */
   constructor(size) {
     this.size = size;
@@ -34,7 +37,7 @@ class CircularBuffer {
 
   /**
    * Whether or not the buffer is full
-   * @return {Boolean}
+   * @return {boolean}
    */
   isFull() {
     return this.write === null;
@@ -42,7 +45,7 @@ class CircularBuffer {
 
   /**
    * Whether or not the buffer is empty
-   * @return {Boolean}
+   * @return {boolean}
    */
   isEmpty() {
     return this.read === null;
@@ -51,7 +54,7 @@ class CircularBuffer {
   /**
    * Add an item to the buffer
    * @param {any} item
-   * @return {Boolean} True if added, false if full
+   * @return {boolean} True if added, false if full
    */
   push(item) {
     if (this.write === null) return false;
@@ -97,7 +100,7 @@ class ConnectionReadStreamWrap extends stream.Readable {
   /**
    * The constructor
    * @param {ClientConnection|ServerConnection} connection Connection to wrap
-   * @param {Number} [bufferLength=64] How large the buffer should be
+   * @param {number} [bufferLength=64] How large the buffer should be
    */
   constructor(connection, bufferLength = 64) {
     super({ objectMode: true, highWaterMark: bufferLength });

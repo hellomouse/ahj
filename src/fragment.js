@@ -2,9 +2,9 @@
 class Fragment {
   /**
    * The constructor
-   * @param {Number} id Fragment identifier (0-255)
-   * @param {Number} index Fragment index (0-255)
-   * @param {Boolean} isLast Whether or not this fragment is the last
+   * @param {number} id Fragment identifier (0-255)
+   * @param {number} index Fragment index (0-255)
+   * @param {boolean} isLast Whether or not this fragment is the last
    * @param {Buffer} data Data
    */
   constructor(id, index, isLast, data) {

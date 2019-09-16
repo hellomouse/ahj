@@ -1,6 +1,8 @@
 const utils = require('./utils.js');
 const crypto = require('crypto');
 
+/** @typedef {import('stream').Stream} Stream */
+
 /** Read n bytes from a stream */
 class StreamConsumer {
   /**
@@ -30,7 +32,7 @@ class StreamConsumer {
   }
   /**
    * Get length bytes from the stream
-   * @param {Number} wantedSize
+   * @param {number} wantedSize
    * @return {Buffer}
    */
   async read(wantedSize) {
@@ -54,7 +56,7 @@ class StreamConsumer {
   }
   /**
    * Read from the stream until specified character is found
-   * @param {Number} char
+   * @param {number} char
    * @return {Buffer} What was read, including the specified character
    */
   async readToChar(char) {
@@ -109,6 +111,7 @@ function aeadEncrypt(key, nonce, message) {
  * @param {Buffer} key
  * @param {Buffer} nonce
  * @param {Buffer} consumer
+ * @return {Buffer}
  */
 async function aeadDecryptNext(key, nonce, consumer) {
   let decipher = crypto.createDecipheriv(

@@ -13,21 +13,23 @@ const utils = require('./utils.js');
 const constants = require('./constants.js');
 const SRP_PARAMS = srp.params[2048];
 
+/** @typedef {import('net').Socket} Socket */
+
 /** Represents a server */
 class Server extends EventEmitter {
   /**
    * The constructor
-   * @param {Object} opts
+   * @param {object} opts
    * @param {Buffer} opts.handshakeKey Handshake key
-   * @param {Number} opts.port Listen port
-   * @param {Object} opts.clients Client verifiers
+   * @param {number} opts.port Listen port
+   * @param {object} opts.clients Client verifiers
    */
   constructor(opts) {
     super();
     this.handshakeKey = opts.handshakeKey;
     this.port = opts.port;
     this.clients = opts.clients;
-    /** @type {Map<Number, ServerSession>} */
+    /** @type {Map<number, ServerSession>} */
     this.sessions = new Map();
     this.server = net.createServer(this.connectionHandler.bind(this));
     /** @type {Set<ServerConnection>} */
@@ -58,10 +60,10 @@ class Server extends EventEmitter {
 class ServerSession extends EventEmitter {
   /**
    * The constructor
-   * @param {Object} opts
-   * @param {Number} opts.sessionId Numerical session id of this session
-   * @param {String} opts.owner User (by identity) this session belongs to
-   * @param {Map<Number, ServerSession>} opts.sessions Map of all sessions by id
+   * @param {object} opts
+   * @param {number} opts.sessionId Numerical session id of this session
+   * @param {string} opts.owner User (by identity) this session belongs to
+   * @param {Map<number, ServerSession>} opts.sessions Map of all sessions by id
    */
   constructor(opts) {
     super();
@@ -104,11 +106,11 @@ class ServerConnection extends EventEmitter {
   /**
    * The constructor
    * @param {Server} server The server this connection belongs to
-   * @param {Object} opts
+   * @param {object} opts
    * @param {Socket} opts.socket The socket to handle
    * @param {Buffer} opts.handshakeKey Handshake key
-   * @param {Object} opts.clients List of client verifiers by identity
-   * @param {Map<Number, ServerSession>} opts.sessions Map of sessions by id
+   * @param {object} opts.clients List of client verifiers by identity
+   * @param {Map<number, ServerSession>} opts.sessions Map of sessions by id
    */
   constructor(server, opts) {
     super();
@@ -139,14 +141,14 @@ class ServerConnection extends EventEmitter {
   }
   /**
    * Log a message with debug()
-   * @param {String} message Message to log
+   * @param {string} message Message to log
    */
   debugLog(message) {
     debug(`[${this.remoteHost}/${this.sessionIdN}] ${message}`);
   }
   /**
    * Set state of connection and emit event
-   * @param {String} state One of DISCONNECTED, CONNECTING, HANDSHAKING, or CONNECTED
+   * @param {string} state One of DISCONNECTED, CONNECTING, HANDSHAKING, or CONNECTED
    */
   setState(state) {
     this.debugLog(`state ${this.state} => ${state}`);
@@ -156,7 +158,7 @@ class ServerConnection extends EventEmitter {
   /**
    * Send an encrypted message
    * @param {Buffer} buffer
-   * @return {Boolean} Whether or not data should continue to be written
+   * @return {boolean} Whether or not data should continue to be written
    */
   sendMessage(buffer) {
     if (this.state !== 'CONNECTED') throw new Error('Not connected');
@@ -172,7 +174,7 @@ class ServerConnection extends EventEmitter {
   }
   /**
    * Destroy the socket with an error message
-   * @param {String} message Error message
+   * @param {string} message Error message
    * @return {Error}
    */
   destroyWithError(message) {

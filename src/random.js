@@ -4,18 +4,18 @@
 
 /**
  * Generate a random decimal value between lower and upper
- * @param {Number} lower Lower bound
- * @param {Number} upper Upper bound
- * @return {Number}
+ * @param {number} lower Lower bound
+ * @param {number} upper Upper bound
+ * @return {number}
  */
 function double(lower, upper) {
   return Math.random() * (upper - lower) + lower;
 }
 /**
  * Generate a random integer between lower and upper bounds
- * @param {Number} lower Lower bound
- * @param {Number} upper Upper bound
- * @return {Number}
+ * @param {number} lower Lower bound
+ * @param {number} upper Upper bound
+ * @return {number}
  */
 function int(lower, upper) {
   return Math.floor(double(lower, upper));
@@ -33,7 +33,7 @@ function fromList(arr) {
 /**
  * Choose n elements from an array
  * @param {any[]} arr List of things to choose from
- * @param {Number} n How many elements to choose
+ * @param {number} n How many elements to choose
  * @return {any[]}
  */
 function choose(arr, n) {
@@ -49,9 +49,9 @@ function choose(arr, n) {
 
 /**
  * Get a random sample from a normal distribution
- * @param {Number} m Mean
- * @param {Number} s Standard deviation
- * @return {Number}
+ * @param {number} m Mean
+ * @param {number} s Standard deviation
+ * @return {number}
  */
 function normal(m, s) {
   let x1 = Math.random();
@@ -61,9 +61,9 @@ function normal(m, s) {
 
 /**
  * Get a random sample from a log-normal distribution
- * @param {Number} m Mean
- * @param {Number} s Standard deviation
- * @return {Number}
+ * @param {number} m Mean
+ * @param {number} s Standard deviation
+ * @return {number}
  */
 function logNormal(m, s) {
   return Math.exp(normal(Math.log(m) + s ** 2, Math.log(1 + s ** 2 / m ** 2)));

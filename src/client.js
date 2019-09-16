@@ -17,9 +17,9 @@ const SRP_PARAMS = srp.params[2048];
 class Client extends EventEmitter {
   /**
    * The constructor
-   * @param {Object} opts
-   * @param {String} opts.host Server hostname
-   * @param {Number} opts.port Server port
+   * @param {object} opts
+   * @param {string} opts.host Server hostname
+   * @param {number} opts.port Server port
    * @param {Buffer} opts.handshakeKey Server handshake key
    * @param {Buffer} opts.salt SRP authentication salt
    * @param {Buffer} opts.identity SRP identity
@@ -99,10 +99,10 @@ class Client extends EventEmitter {
 class ClientConnection extends EventEmitter {
   /**
    * The constructor
-   * @param {Object} opts
-   * @param {String} opts.host Server hostname
-   * @param {Number} opts.port Server port
-   * @param {String} opts.mode Connection mode, either INIT or RESUME
+   * @param {object} opts
+   * @param {string} opts.host Server hostname
+   * @param {number} opts.port Server port
+   * @param {string} opts.mode Connection mode, either INIT or RESUME
    * @param {Buffer} [opts.sessionId] Session id, specify with mode RESUME
    * @param {Buffer} opts.handshakeKey Server handshake key
    * @param {Buffer} opts.salt SRP authentication salt
@@ -140,14 +140,14 @@ class ClientConnection extends EventEmitter {
   }
   /**
    * Log a debug message
-   * @param {String} message
+   * @param {string} message
    */
   debugLog(message) {
     debug(`[${this.localPort}/${this.sessionIdN}] ${message}`);
   }
   /**
    * Set state of connection and emit event
-   * @param {String} state One of DISCONNECTED, CONNECTING, HANDSHAKING, or CONNECTED
+   * @param {string} state One of DISCONNECTED, CONNECTING, HANDSHAKING, or CONNECTED
    */
   setState(state) {
     this.debugLog(`state ${this.state} => ${state}`);
@@ -157,7 +157,7 @@ class ClientConnection extends EventEmitter {
   /**
    * Send an encrypted message
    * @param {Buffer} buffer
-   * @return {Boolean} Whether or not data should continue to be written
+   * @return {boolean} Whether or not data should continue to be written
    */
   sendMessage(buffer) {
     if (this.state !== 'CONNECTED') throw new Error('Not connected');
@@ -210,8 +210,8 @@ class ClientConnection extends EventEmitter {
   }
   /**
    * Destroy the socket with an error message
-   * @param {String} message Error message
-   * @param {String} code Error code (in error.code)
+   * @param {string} message Error message
+   * @param {string} code Error code (in error.code)
    * @return {Error}
    */
   destroyWithError(message, code) {

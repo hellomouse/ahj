@@ -7,51 +7,30 @@ const {
   StreamConsumer,
   aeadEncrypt,
   aeadDecryptNext
-} = require('./protocol.js');
+} = require('../src/protocol.js');
 const {
   Client,
   ClientConnection
-} = require('./client.js');
+} = require('../src/client.js');
 const {
   Server,
   Session,
   ServerConnection
-} = require('./server.js');
-const { Disassembler } = require('./disassembler.js');
-const { Reassembler } = require('./reassembler.js');
+} = require('../src/server.js');
+const { Disassembler } = require('../src/disassembler.js');
+const { Reassembler } = require('../src/reassembler.js');
 const SRP_PARAMS = srp.params[2048];
 
-process.on('unhandledRejection', err => {
+/**
+ * Print errors
+ * @param {Error} err
+ */
+function errorHandler(err) {
   console.log(err);
   console.log(err.code);
-});
-
-/**
- * Read n bytes from a stream
- * NOT WORKING
- * @param {Stream} stream
- */
-/*
-async function* streamConsumer(stream) {
-  let wantedSize = yield;
-  let chunks = [];
-  let satisfiedSize = 0;
-  for await (let chunk of stream) {
-    chunks.push(chunk);
-    satisfiedSize += chunk.length;
-    while (satisfiedSize >= wantedSize) {
-      let out = Buffer.concat(chunks);
-      chunks = [];
-      if (out.length > wantedSize) {
-        chunks.push(out.slice(wantedSize));
-        out = out.slice(0, wantedSize);
-      }
-      satisfiedSize = satisfiedSize - wantedSize;
-      wantedSize = yield out;
-    }
-  }
 }
-*/
+process.on('uncaughtException', errorHandler);
+process.on('unhandledRejection', errorHandler);
 
 /**
  * Stream consumer demo

@@ -6,7 +6,7 @@ const stream = require('stream');
 class PartialMessage {
   /**
    * The constructor
-   * @param {Number} id Message identifier
+   * @param {number} id Message identifier
    */
   constructor(id) {
     this.id = id;
@@ -22,7 +22,7 @@ class PartialMessage {
   /**
    * Process a new fragment
    * @param {Fragment} fragment
-   * @return {Boolean} True if finished, false if not yet
+   * @return {boolean} True if finished, false if not yet
    */
   processNewFragment(fragment) {
     this.fragments[fragment.index] = fragment;
@@ -44,7 +44,7 @@ class PartialMessage {
 class Reassembler extends stream.Transform {
   /**
    * The constructor
-   * @param {Number} [bufferLength=32] Length of internal buffer
+   * @param {number} [bufferLength=32] Length of internal buffer
    */
   constructor(bufferLength = 32) {
     super({ objectMode: true, highWaterMark: bufferLength });
@@ -55,7 +55,7 @@ class Reassembler extends stream.Transform {
   /**
    * Process new data
    * @param {Buffer} data
-   * @param {String} encoding Not used
+   * @param {string} encoding Not used
    * @param {Function} callback
    */
   _transform(data, encoding, callback) {

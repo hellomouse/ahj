@@ -4,12 +4,15 @@ const debug = require('debug')('ahj:disassembler');
 const util = require('util');
 const random = require('./random.js');
 
+/** @typedef {import('./client.js').ClientConnection} ClientConnection */
+/** @typedef {import('./server.js').ServerConnection} ServerConnection */
+
 /** Represents an outgoing message that may be split into fragments */
 class OutgoingMessage {
   /**
    * The constructor
    * @param {Buffer} message Buffer of original message
-   * @param {Number} id Fragment identifier
+   * @param {number} id Fragment identifier
    */
   constructor(message, id) {
     this.message = message;
@@ -21,7 +24,7 @@ class OutgoingMessage {
 
   /**
    * Get how many bytes are left in the message
-   * @return {Number}
+   * @return {number}
    */
   get remainingLength() {
     return this.message.length - this.offset;
@@ -29,7 +32,7 @@ class OutgoingMessage {
 
   /**
    * Get a fragment of a specified size
-   * @param {Number} [bytes] Size of fragment. If not specified, defaults to
+   * @param {number} [bytes] Size of fragment. If not specified, defaults to
    *  all remaining bytes
    * @return {Fragment}
    */
@@ -48,12 +51,12 @@ class Disassembler {
   /**
    * The constructor
    * @param {ClientConnection[]|ServerConnection[]} connections List of connections
-   * @param {Object} opts Additional options
-   * @param {Number} [opts.bufferLength=1000] Buffer length, in number of messages
-   * @param {Number} [opts.fragmentBufferLength=15] Length of fragment buffer
-   * @param {Number} [opts.leastBytesPerConn=64] Lower limit of the number of bytes
+   * @param {object} opts Additional options
+   * @param {number} [opts.bufferLength=1000] Buffer length, in number of messages
+   * @param {number} [opts.fragmentBufferLength=15] Length of fragment buffer
+   * @param {number} [opts.leastBytesPerConn=64] Lower limit of the number of bytes
    *  that should be sent per connection per tick
-   * @param {Number} [opts.leastFragmentLength=16] Don't send fragments shorter than
+   * @param {number} [opts.leastFragmentLength=16] Don't send fragments shorter than
    *  this amount
    */
   constructor(connections, opts) {
@@ -76,7 +79,7 @@ class Disassembler {
   /**
    * Add a message to be sent
    * @param {Buffer} message
-   * @return {Boolean} Whether or not data should continue to be written
+   * @return {boolean} Whether or not data should continue to be written
    */
   add(message) {
     if (this.messageBuffer.push(message)) {
@@ -89,7 +92,7 @@ class Disassembler {
 
   /**
    * Get the next available fragment id
-   * @return {Number}
+   * @return {number}
    */
   getNextFragId() {
     for (let i = 0; i < 255; i++) {
@@ -186,7 +189,7 @@ class Disassembler {
           let fragment = m.getFragment(allocated - used - 5);
           let copied = fragment.toBuffer().copy(buf, used);
           debug(`splitting message to fragment ${fragment.id} (sent ` +
-          `${copied} bytes, stored ${m.remainingLength + 5} bytes)`);
+            `${copied} bytes, stored ${m.remainingLength + 5} bytes)`);
           used += copied;
           this.fragmentBufferBytes -= copied - 5;
           break;
