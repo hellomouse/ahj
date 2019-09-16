@@ -1,6 +1,6 @@
 # ahj - American Headset Jack
 
-A VPN system, sort-of
+This is a weird obfuscated network protocol that was originally meant to be a VPN.
 
 ## The name makes no sense
 
