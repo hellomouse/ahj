@@ -3,6 +3,7 @@ const utils = require('./utils.js');
 const debug = require('debug')('ahj:disassembler');
 const util = require('util');
 const random = require('./random.js');
+const stream = require('stream');
 
 /** @typedef {import('./client.js').ClientConnection} ClientConnection */
 /** @typedef {import('./server.js').ServerConnection} ServerConnection */
@@ -47,7 +48,7 @@ class OutgoingMessage {
 }
 
 /** Disassembles messages into fragments */
-class Disassembler {
+class Disassembler extends stream.Writable {
   /**
    * The constructor
    * @param {ClientConnection[]|ServerConnection[]} connections List of connections
@@ -60,6 +61,7 @@ class Disassembler {
    *  this amount
    */
   constructor(connections, opts) {
+    super({ objectMode: true });
     this.opts = opts = Object.assign({
       bufferLength: 1000,
       fragmentBufferLength: 15,
@@ -83,13 +85,25 @@ class Disassembler {
    */
   add(message) {
     if (!(message instanceof Buffer)) throw new Error('Expected buffer');
-    if (message.length > 65535) throw new Error('Message too long!');
     if (this.messageBuffer.push(message)) {
       this.bufferBytes += message.length + 5;
       debug(`adding message of length ${message.length} ` +
         `(total bytes in buffer: ${this.bufferBytes})`);
       return true;
     } else return false;
+  }
+
+  /**
+   * Node.js Writable stream _write method
+   * @param {Buffer} chunk
+   * @param {string} _encoding Not used
+   * @param {Function} callback
+   * @return {undefined}
+   */
+  _write(chunk, _encoding, callback) {
+    if (this.add(chunk)) return callback();
+    // could not be added to current send buffer, try again when tick occurs
+    this.once('dataSent', this._write.bind(this, chunk, _encoding, callback));
   }
 
   /**
@@ -128,6 +142,8 @@ class Disassembler {
     let shouldContinue = true;
     for (let i = 0; i < activeConnections.length; i++) {
       let allocated = Math.round(random.normal(perConnection, perConnection / 10));
+      // each data packet can only hold a maximum of 65535 bytes
+      if (allocated > 65535) allocated = 65535;
       if (allocated <= 5) continue;
       debug(`sending ${allocated} bytes over connection ${i}`);
       let buf = Buffer.alloc(allocated);
@@ -211,6 +227,7 @@ class Disassembler {
     if (totalSent) {
       debug(`sent ${totalSent} bytes total, ${dataSent} bytes useful data ` +
         `(${dataSent / totalSent * 100}% efficiency)`);
+      this.emit('dataSent');
     }
   }
 }
