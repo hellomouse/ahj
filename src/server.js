@@ -74,17 +74,8 @@ class ServerSession extends Session {
     this.connected = true;
     this.owner = opts.owner;
     this.sessions = opts.sessions;
-  }
 
-  /**
-   * Remove a connection from this session
-   * @param {ServerConnection} conn
-   */
-  removeConnection(conn) {
-    super.removeConnection(conn);
-    if (this.connections.length === 0) {
-      this.sessions.delete(this.sessionId);
-    }
+    this.on('end', () => this.sessions.delete(this.sessionId));
   }
 }
 

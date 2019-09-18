@@ -59,8 +59,8 @@ class Session extends EventEmitter {
     this.emit('removeConnection', conn);
     if (!this.connections.length) {
       this.connected = false;
-      this.sessionId = null;
       this.emit('end');
+      this.sessionId = null;
     }
   }
 
