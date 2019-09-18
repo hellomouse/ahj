@@ -332,6 +332,11 @@ class ClientConnection extends EventEmitter {
     this.setState(ConnectionStates.CONNECTED);
     this.emit('connected');
   }
+
+  /** Close this connection */
+  close() {
+    this.socket.end();
+  }
 }
 
 module.exports = {

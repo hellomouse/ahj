@@ -30,7 +30,7 @@ async function main() {
     handshakeKey: serverConfig.handshakeKey,
     host: serverConfig.host,
     port: serverConfig.port,
-    username: identity,
+    identity,
     salt: salt.toString('base64'),
     password: '<REPLACE WITH ACTUAL PASSWORD>'
   };
