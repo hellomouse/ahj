@@ -134,6 +134,7 @@ class ServerConnection extends EventEmitter {
    * @param {string} message Message to log
    */
   debugLog(message) {
+    if (!process.env.DEBUG) return;
     debug(`[${this.remoteHost}/${this.sessionIdN}] ${message}`);
   }
   /**
@@ -285,7 +286,7 @@ class ServerConnection extends EventEmitter {
       this.sessionId = Buffer.from(clientMessage.slice(offset, offset += 4));
       this.sessionIdN = this.sessionId.readUInt32BE();
       let session = this.sessions.get(this.sessionIdN);
-      if (!session) {
+      if (!session || (session.owner !== identity)) {
         this.socket.write(aeadEncrypt(
           this.handshakeKey, serverHandshakeNonce,
           Buffer.from([constants.ServerHandshake.INVALID_SESSION])

@@ -140,6 +140,7 @@ class ClientConnection extends EventEmitter {
    * @param {string} message
    */
   debugLog(message) {
+    if (!process.env.DEBUG) return;
     debug(`[${this.localPort}/${this.sessionIdN}] ${message}`);
   }
   /**

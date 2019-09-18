@@ -120,7 +120,10 @@ class ConnectionReadStreamWrap extends stream.Readable {
         process.nextTick(() => this.emit('error', err));
         return;
       }
-      if (!data) this.push(null);
+      if (!data) {
+        this.push(null);
+        break;
+      }
       if (!this.push(data)) break;
     }
     this.lock = false;
