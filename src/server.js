@@ -228,7 +228,7 @@ class ServerConnection extends EventEmitter {
         this.handshakeKey, nonce, this.consumer
       );
     } catch (err) {
-      throw this.destroyWithError('Client handshake message failed auth');
+      this.destroyWithError('Client handshake message failed auth');
     }
     // client has correct handshake key
     this.debugLog('received client handshake message');
