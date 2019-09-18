@@ -64,7 +64,8 @@ class Client extends EventEmitter {
     await connection.connect();
     // connected to server
     this.session.connected = true;
-    this.session.sessionId = connection.sessionIdN;
+    this.session.sessionId = connection.sessionId;
+    this.session.sessionIdN = connection.sessionIdN;
     this._handleConnect(connection);
   }
 

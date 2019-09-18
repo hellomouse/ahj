@@ -13,7 +13,8 @@ class Session extends EventEmitter {
   /**
    * The constructor
    * @param {object} opts
-   * @param {number} opts.sessionId Numerical session id of this session
+   * @param {Buffer} opts.sessionId Session id of this session
+   * @param {number} opts.sessionIdN Numerical session id of this session
    * @param {object} opts.disassemblerOptions
    * @param {object} opts.reassemblerOptions
    * @param {number} opts.reassemblerOptions.bufferLength
@@ -26,7 +27,8 @@ class Session extends EventEmitter {
       disassemblerOptions: {},
       reassemblerOptions: {}
     }, opts);
-    this.sessionId = opts.sessionId;
+    this.sessionId = opts.sessionId || null;
+    this.sessionIdN = opts.sessionIdN || null;
     this.connections = [];
     this.disassembler = new Disassembler(this.connections, opts.disassemblerOptions);
     this.reassembler = new Reassembler(opts.reassemblerOptions.bufferLength);

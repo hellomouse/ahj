@@ -75,7 +75,7 @@ class ServerSession extends Session {
     this.owner = opts.owner;
     this.sessions = opts.sessions;
 
-    this.on('end', () => this.sessions.delete(this.sessionId));
+    this.on('end', () => this.sessions.delete(this.sessionIdN));
   }
 }
 
@@ -263,7 +263,8 @@ class ServerConnection extends EventEmitter {
         // SERVER NOT DEAD YET)
         session = new ServerSession({
           ...this.sessionOptions,
-          sessionId: this.sessionIdN,
+          sessionId: this.sessionId,
+          sessionIdN: this.sessionIdN,
           owner: identity,
           sessions: this.sessions
         });
