@@ -305,6 +305,8 @@ class ChannelHandler extends stream.Duplex {
           break;
         }
         case ChannelControl.CHANNEL_CLOSE: {
+          // FIXME: attach last sequence number to CLOSE and CLOSE_ACK to prevent
+          // errors and data loss
           debug(`received CHANNEL_CLOSE for ${channelId}`);
           let channel = this.channels.get(channelId);
           if (!channel) {
@@ -325,14 +327,14 @@ class ChannelHandler extends stream.Duplex {
           channel.push(null);
           // wait for any possible remaining data to be sent
           // CLOSE message should be received after remaining data is sent
-          let finishCb = () => this.session.disassembler.once('dataSent', () => {
+          let finishCb = () => {
             channel.setState(ChannelStates.CLOSED);
             this.channels.delete(channel.id);
             this.push(Buffer.concat([
               chunk.slice(0, 4),
               Buffer.from([ChannelControl.CHANNEL_CLOSE_ACK])
             ]));
-          });
+          };
           if (channel.writableFinished) finishCb();
           else channel.on('finish', finishCb);
           break;
@@ -397,12 +399,12 @@ class ChannelHandler extends stream.Duplex {
   _doChannelClose(channel) {
     channel.setState(ChannelStates.CLOSING);
     if (!channel.writableEnded) channel.end();
-    let finishCb = () => this.session.disassembler.once('dataSent', () => {
+    let finishCb = () => {
       this.push(Buffer.concat([
         channel.idBuf,
         Buffer.from([0, 0, ChannelControl.CHANNEL_CLOSE])
       ]));
-    });
+    };
     if (!channel.writableFinished) channel.on('finish', finishCb);
     else finishCb();
   }
