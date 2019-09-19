@@ -7,6 +7,7 @@ const { ChannelHandler } = require('./channels.js');
 /** @typedef {import('./client.js').ClientConnection} ClientConnection */
 /** @typedef {import('./server.js').ServerConnection} ServerConnection */
 /** @typedef {ClientConnection|ServerConnection} Connection */
+/** @typedef {import('./channels.js').Channel} Channel */
 
 /** Represents one session composed of many connections */
 class Session extends EventEmitter {
@@ -32,10 +33,13 @@ class Session extends EventEmitter {
     this.connections = [];
     this.disassembler = new Disassembler(this.connections, opts.disassemblerOptions);
     this.reassembler = new Reassembler(opts.reassemblerOptions.bufferLength);
-    this.channelHander = new ChannelHandler({
+    // vscode pls this is obvious
+    /** @type {ChannelHandler} */
+    this.channelHandler = new ChannelHandler({
       session: this
     });
-    this.channels = this.channelHander.channels;
+    this.channels = this.channelHandler.channels;
+    this.reassembler.pipe(this.channelHandler).pipe(this.disassembler);
   }
 
   /**
@@ -66,6 +70,14 @@ class Session extends EventEmitter {
       this.emit('end');
       this.sessionId = null;
     }
+  }
+
+  /**
+   * Wrapper around ChannelHandler#createChannel
+   * @return {Promise<Channel>}
+   */
+  createChannel() {
+    return this.channelHandler.createChannel();
   }
 
   /** End all connections */

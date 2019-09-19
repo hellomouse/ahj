@@ -266,7 +266,8 @@ class ChannelHandler extends stream.Duplex {
               id: channelId,
               channelHandler: this
             });
-            channel.setState(ChannelControl.OPEN);
+            channel.setState(ChannelStates.OPEN);
+            this.channels.set(channelId, channel);
             this.push(Buffer.concat([
               chunk.slice(0, 4), // laziness
               Buffer.from([ChannelControl.CHANNEL_OPEN_ACK])
@@ -404,7 +405,7 @@ class ChannelHandler extends stream.Duplex {
    * @return {boolean}
    */
   push(data) {
-    let result = this.push(data);
+    let result = super.push(data);
     if (!result) this._shouldPush = false;
     return result;
   }
