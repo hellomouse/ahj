@@ -108,7 +108,15 @@ server.on('newSession', session => {
   cli.context.serverSession = session;
   session.disassembler.tick();
   setInterval(() => session.disassembler.tick());
-  session.reassembler.on('data', d => console.log('client => server', d.toString()));
+  session.channelHandler.on('channelOpened', channel => {
+    console.log(`server: channel ${channel.id} opened`);
+    let handler = d => console.log(`server: channel ${channel.id} received message ${d.toString()}`);
+    channel.on('data', handler);
+    channel.on('end', () => {
+      console.log(`server: channel ${channel.id} end`);
+      channel.removeListener('data', handler);
+    });
+  });
 });
 (async () => {
   await client.connect();
@@ -117,7 +125,15 @@ server.on('newSession', session => {
   await client.addConnection();
   cli.context.clientSession = client.session;
   setInterval(() => client.session.disassembler.tick());
-  client.session.reassembler.on('data', d => console.log('client => server', d.toString()));
+  client.session.channelHandler.on('channelOpened', channel => {
+    console.log(`client: channel ${channel.id} opened`);
+    let handler = d => console.log(`client: channel ${channel.id} received message ${d.toString()}`);
+    channel.on('data', handler);
+    channel.on('end', () => {
+      console.log(`client: channel ${channel.id} end`);
+      channel.removeEventListener('data', handler);
+    });
+  });
 })();
 
 cli.context.server = server;

@@ -207,7 +207,10 @@ class ChannelHandler extends stream.Duplex {
         debug(`remote acknowleged channel open for ${id}`);
         channel.setState(ChannelStates.OPEN);
         channel._operationWait = null;
-        process.nextTick(() => this.emit('localOpenedChannel', channel));
+        process.nextTick(() => {
+          this.emit('localOpenedChannel', channel);
+          this.emit('channelOpened', channel);
+        });
         return channel;
       } catch (err) {
         // remote end sent CHANNEL_OPEN_NAK, try again in a bit
@@ -218,6 +221,7 @@ class ChannelHandler extends stream.Duplex {
         this.channels.delete(channel.id);
         this.channels.set(id, channel);
         channel.id = id;
+        channel.idBuf.writeUInt16BE(id);
         let message = Buffer.concat([
           channel.idBuf,
           Buffer.from([0, 0, ChannelControl.CHANNEL_OPEN])
@@ -273,6 +277,7 @@ class ChannelHandler extends stream.Duplex {
               Buffer.from([ChannelControl.CHANNEL_OPEN_ACK])
             ]));
             this.emit('remoteOpenedChannel', channel);
+            this.emit('channelOpened', channel);
           }
           break;
         }

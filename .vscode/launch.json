@@ -8,7 +8,7 @@
             "type": "node",
             "request": "launch",
             "name": "Launch Program",
-            "program": "${workspaceFolder}/src/stuff.js",
+            "program": "${workspaceFolder}/test/stuff.js",
             "env": {
                 "DEBUG": "*"
             },
