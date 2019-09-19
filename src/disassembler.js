@@ -230,7 +230,7 @@ class Disassembler extends stream.Writable {
     if (totalSent) {
       debug(`sent ${totalSent} bytes total, ${dataSent} bytes useful data ` +
         `(${dataSent / totalSent * 100}% efficiency)`);
-      this.emit('dataSent');
+      process.nextTick(() => this.emit('dataSent'));
     }
   }
 }

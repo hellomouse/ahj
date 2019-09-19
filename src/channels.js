@@ -324,14 +324,15 @@ class ChannelHandler extends stream.Duplex {
           // close down readable part
           channel.push(null);
           // wait for any possible remaining data to be sent
-          let finishCb = () => {
+          // CLOSE message should be received after remaining data is sent
+          let finishCb = () => this.session.disassembler.once('dataSent', () => {
             channel.setState(ChannelStates.CLOSED);
             this.channels.delete(channel.id);
             this.push(Buffer.concat([
               chunk.slice(0, 4),
               Buffer.from([ChannelControl.CHANNEL_CLOSE_ACK])
             ]));
-          };
+          });
           if (channel.writableFinished) finishCb();
           else channel.on('finish', finishCb);
           break;
@@ -376,6 +377,7 @@ class ChannelHandler extends stream.Duplex {
     } else {
       let channel = this.channels.get(channelId);
       if (!channel) {
+        callback();
         return debug(`Received message for nonexistent channel ${channelId}`);
       }
       let pushCb = () => {
@@ -387,8 +389,6 @@ class ChannelHandler extends stream.Duplex {
       } else pushCb();
     }
   }
-  // TODO: make a _doChannelClose that will set state to CLOSING, end, wait for
-  // finish, then send CHANNEL_CLOSE
 
   /**
    * Internal method to handle sending channel close message
@@ -397,12 +397,12 @@ class ChannelHandler extends stream.Duplex {
   _doChannelClose(channel) {
     channel.setState(ChannelStates.CLOSING);
     if (!channel.writableEnded) channel.end();
-    let finishCb = () => {
+    let finishCb = () => this.session.disassembler.once('dataSent', () => {
       this.push(Buffer.concat([
         channel.idBuf,
         Buffer.from([0, 0, ChannelControl.CHANNEL_CLOSE])
       ]));
-    };
+    });
     if (!channel.writableFinished) channel.on('finish', finishCb);
     else finishCb();
   }
