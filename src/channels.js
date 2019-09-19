@@ -43,6 +43,8 @@ class Channel extends stream.Duplex {
     this._operationWait = null;
     /** Sparse array for holding out of order pieces */
     this._outOfOrderCache = new Array(65536);
+    /** If readable part should accept new data */
+    this._shouldPush = true;
   }
 
   /**
@@ -53,6 +55,12 @@ class Channel extends stream.Duplex {
     debug(`channel ${this.id} state change ${this.state.description} => ${state.description}`);
     this.state = state;
     this.emit('stateChange', state);
+  }
+
+  /** Node.js stream.Readable _read method */
+  _read() {
+    this._shouldPush = true;
+    this.emit('canPush');
   }
 
   /**
@@ -83,7 +91,33 @@ class Channel extends stream.Duplex {
       }
       this._outOfOrderCache[sequence] = data;
     }
+    if (!ret) this._shouldPush = false;
     return ret;
+  }
+
+  /**
+   * Node.js stream.Writable _write method
+   * @param {Buffer} chunk
+   * @param {string} _encoding Unused
+   * @param {Function} callback
+   */
+  _write(chunk, _encoding, callback) {
+    if (this.state !== ChannelStates.OPEN) {
+      throw errCode('Channel is not open!', 'CHANNEL_NOT_OPEN');
+    }
+    let sequenceBuf = Buffer.allocUnsafe(2);
+    sequenceBuf.writeUInt16BE(this.localSequence);
+    let message = Buffer.concat([
+      this.idBuf,
+      sequenceBuf,
+      chunk
+    ]);
+    let doneCb = () => {
+      this.handler.push(message);
+      callback();
+    };
+    if (this.handler._shouldPush) doneCb();
+    else this.handler.once('canPush', doneCb);
   }
 
   /**
@@ -277,8 +311,10 @@ class ChannelHandler extends stream.Duplex {
           // prevent further data from being sent
           channel.setState(ChannelStates.CLOSING);
           channel.emit('remoteClose');
-          // wait for any possible remaining data to be sent
           if (!channel.writableEnded) channel.end();
+          // close down readable part
+          channel.push(null);
+          // wait for any possible remaining data to be sent
           let finishCb = () => {
             channel.setState(ChannelStates.CLOSED);
             this.channels.delete(channel.id);
@@ -333,8 +369,12 @@ class ChannelHandler extends stream.Duplex {
       if (!channel) {
         return debug(`Received message for nonexistent channel ${channelId}`);
       }
-      if (channel._processMessage(sequence, rest)) callback();
-      else channel.once('drain', () => callback());
+      if (!channel._shouldPush) {
+        channel.once('canPush', () => {
+          channel._processMessage(sequence, rest);
+          callback();
+        });
+      } else channel._processMessage(sequence, rest);
     }
   }
   // TODO: make a _doChannelClose that will set state to CLOSING, end, wait for
