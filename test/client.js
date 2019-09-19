@@ -16,6 +16,23 @@ async function main() {
 
   let cli = repl.start();
   cli.context.client = client;
+
+  cli.context.doSshTunnel = function doSshTunnel() {
+    const net = require('net');
+    const debug = require('debug')('ahj:sshproxy-client');
+    setInterval(() => client.session.disassembler.tick());
+    let server = cli.context.sshListener = net.createServer(async socket => {
+      debug('got connection, creating channel...');
+      let channel = await client.session.createChannel();
+      debug(`channel created (${channel.id}), connecting`);
+      socket.pipe(channel).pipe(socket);
+      socket.on('close', () => {
+        debug(`closing down channel ${channel.id}`);
+        channel.close();
+      });
+    });
+    server.listen(22222, () => debug('server listening'));
+  };
 }
 
 main();

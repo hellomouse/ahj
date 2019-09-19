@@ -140,6 +140,7 @@ class Channel extends stream.Duplex {
 
   /** Close this channel */
   close() {
+    if (this.state !== ChannelStates.OPEN) return; // no need to do anything
     this.handler._doChannelClose(this);
   }
 }

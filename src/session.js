@@ -40,6 +40,10 @@ class Session extends EventEmitter {
     });
     this.channels = this.channelHandler.channels;
     this.reassembler.pipe(this.channelHandler).pipe(this.disassembler);
+    // also emit events on session instance
+    for (let event of [
+      'localOpenedChannel', 'remoteOpenedChannel', 'channelOpened'
+    ]) this.channelHandler.on(event, channel => this.emit(event, channel));
   }
 
   /**
