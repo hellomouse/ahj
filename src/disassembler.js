@@ -1,9 +1,11 @@
 const Fragment = require('./fragment.js');
 const utils = require('./utils.js');
-const debug = require('debug')('ahj:disassembler');
-const util = require('util');
 const random = require('./random.js');
 const stream = require('stream');
+
+let debug;
+if (process.env.DEBUG) debug = require('debug')('ahj:disassembler');
+else debug = () => {};
 
 /** @typedef {import('./client.js').ClientConnection} ClientConnection */
 /** @typedef {import('./server.js').ServerConnection} ServerConnection */
@@ -219,7 +221,8 @@ class Disassembler extends stream.Writable {
       // FIXME: there's probably a better way to do this
       if (!used) continue;
 
-      debug(`sending ${util.inspect(buf)} over conn ${i}`);
+      // this is slow
+      // debug(`sending ${util.inspect(buf)} over conn ${i}`);
       totalSent += allocated;
       dataSent += used;
       activeConnections[i].sendMessage(buf);

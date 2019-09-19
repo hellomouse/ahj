@@ -1,6 +1,9 @@
 const Fragment = require('./fragment.js');
-const debug = require('debug')('ahj:reassembler');
 const stream = require('stream');
+
+let debug;
+if (process.env.DEBUG) debug = require('debug')('ahj:reassembler');
+else debug = () => {};
 
 /** Represents a message of several fragments */
 class PartialMessage {

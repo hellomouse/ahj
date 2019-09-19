@@ -63,3 +63,6 @@ typings/
 # configurations
 clientconfig.json
 serverconfig.json
+
+# v8 profiles
+*.cpuprofile
