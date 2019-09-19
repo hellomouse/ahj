@@ -2,7 +2,7 @@ const EventEmitter = require('events');
 const utils = require('./utils.js');
 const { Disassembler } = require('./disassembler.js');
 const { Reassembler } = require('./reassembler.js');
-const Channel = require('./channels.js').Channel;
+const { ChannelHandler } = require('./channels.js');
 
 /** @typedef {import('./client.js').ClientConnection} ClientConnection */
 /** @typedef {import('./server.js').ServerConnection} ServerConnection */
@@ -32,8 +32,10 @@ class Session extends EventEmitter {
     this.connections = [];
     this.disassembler = new Disassembler(this.connections, opts.disassemblerOptions);
     this.reassembler = new Reassembler(opts.reassemblerOptions.bufferLength);
-    /** @type {Map<number, Channel>} */
-    this.channels = new Map();
+    this.channelHander = new ChannelHandler({
+      session: this
+    });
+    this.channels = this.channelHander.channels;
   }
 
   /**

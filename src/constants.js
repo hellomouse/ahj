@@ -10,6 +10,12 @@ exports = module.exports = {
     HANDSHAKING: Symbol('HANDSHAKING'),
     CONNECTING: Symbol('CONNECTING')
   },
+  ChannelStates: {
+    OPENING: Symbol('OPENING'),
+    OPEN: Symbol('OPEN'),
+    CLOSING: Symbol('CLOSING'),
+    CLOSED: Symbol('CLOSED')
+  },
   ClientHandshake: {
     INIT: 0,
     RESUME: 1
@@ -19,7 +25,7 @@ exports = module.exports = {
     INVALID_SESSION: 1,
     INVALID_IDENTITY: 2
   },
-  MessageTypes: {
+  ChannelControl: {
     CHANNEL_OPEN: 0,
     CHANNEL_OPEN_ACK: 1,
     CHANNEL_OPEN_NAK: 2,

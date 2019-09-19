@@ -130,8 +130,25 @@ class ConnectionReadStreamWrap extends stream.Readable {
   }
 }
 
+/** Implements a Deferred */
+class Deferred {
+  /** The constructor */
+  constructor() {
+    /** @type {Function} */
+    this.resolve = null;
+    /** @type {Function} */
+    this.reject = null;
+    /** @type {Promise} */
+    this.promise = new Promise((resolve, reject) => {
+      this.resolve = resolve;
+      this.reject = reject;
+    });
+  }
+}
+
 module.exports = {
   CircularBuffer,
   ConnectionReadStreamWrap,
+  Deferred,
   errCode
 };
