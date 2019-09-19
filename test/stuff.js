@@ -131,7 +131,7 @@ server.on('newSession', session => {
     channel.on('data', handler);
     channel.on('end', () => {
       console.log(`client: channel ${channel.id} end`);
-      channel.removeEventListener('data', handler);
+      channel.removeListener('data', handler);
     });
   });
 })();

@@ -86,7 +86,7 @@ class Channel extends stream.Duplex {
         // this should not happen
         throw errCode(
           `Channel ${this.id} out of order cache overflowed, expect dropped messages`,
-          `CHANNEL_OUT_OF_ORDER_QUEUE_OVERFLOWED`
+          'CHANNEL_OUT_OF_ORDER_QUEUE_OVERFLOWED'
         );
       }
       this._outOfOrderCache[sequence] = data;
@@ -112,6 +112,8 @@ class Channel extends stream.Duplex {
       sequenceBuf,
       chunk
     ]);
+    this.localSequence++;
+    if (this.localSequence > 65535) this.localSequence = 1;
     let doneCb = () => {
       this.handler.push(message);
       callback();
@@ -375,12 +377,13 @@ class ChannelHandler extends stream.Duplex {
       if (!channel) {
         return debug(`Received message for nonexistent channel ${channelId}`);
       }
+      let pushCb = () => {
+        channel._processMessage(sequence, rest);
+        callback();
+      };
       if (!channel._shouldPush) {
-        channel.once('canPush', () => {
-          channel._processMessage(sequence, rest);
-          callback();
-        });
-      } else channel._processMessage(sequence, rest);
+        channel.once('canPush', pushCb);
+      } else pushCb();
     }
   }
   // TODO: make a _doChannelClose that will set state to CLOSING, end, wait for
