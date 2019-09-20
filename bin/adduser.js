@@ -8,6 +8,7 @@ const readAsync = util.promisify(read);
  * Generates client configuration files and adds credentials to the
  * server configuration file.
  * Usage: node bin/adduser.js [<server config>] [<username>] [<salt>] [<verifier>]
+ * If username, salt, and/or verifier are not given, they will be prompted for.
  */
 async function main() {
   let configPath = process.argv[2] || 'serverconfig.json';
