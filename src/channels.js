@@ -36,6 +36,17 @@ class Channel extends stream.Duplex {
     this.remoteSequence = 1;
 
     /**
+     * True when we have already received remote close and are now waiting for
+     * the last message
+     */
+    this._remoteCloseWait = false;
+    /**
+     * Last sequence number of remote -> local stream (plus one)
+     * Used to determine when the channel has ended
+     * @type {number}
+     */
+    this._lastRemoteSequence = null;
+    /**
      * Holds the Deferred instance for waiting for the completion of what is
      * currently in progress (opening/closing)
      * @type {Deferred}
@@ -81,6 +92,10 @@ class Channel extends stream.Duplex {
         ret = this.push(thing);
         delete this._outOfOrderCache[next];
       }
+      if (
+        this._remoteCloseWait &&
+        (this._lastRemoteSequence === this.remoteSequence)
+      ) this._operationWait.resolve();
     } else {
       if (this._outOfOrderCache[sequence]) {
         // this should not happen
@@ -311,32 +326,42 @@ class ChannelHandler extends stream.Duplex {
           let channel = this.channels.get(channelId);
           if (!channel) {
             debug(`... but that channel doesn't exist?`);
-            // send CHANNEL_CLOSE_ACK even if said channel doesn't exist to
-            // prevent possible random desyncs
-            this.push(Buffer.concat([
-              chunk.slice(0, 4),
-              Buffer.from([ChannelControl.CHANNEL_CLOSE_ACK])
-            ]));
             break;
           }
           // prevent further data from being sent
           channel.setState(ChannelStates.CLOSING);
           channel.emit('remoteClose');
           if (!channel.writableEnded) channel.end();
-          // close down readable part
-          channel.push(null);
-          // wait for any possible remaining data to be sent
-          // CLOSE message should be received after remaining data is sent
-          let finishCb = () => {
-            channel.setState(ChannelStates.CLOSED);
-            this.channels.delete(channel.id);
-            this.push(Buffer.concat([
-              chunk.slice(0, 4),
-              Buffer.from([ChannelControl.CHANNEL_CLOSE_ACK])
-            ]));
-          };
-          if (channel.writableFinished) finishCb();
-          else channel.on('finish', finishCb);
+          (async () => {
+            let finalSequence = rest.readUInt16BE(1);
+            if (channel.remoteSequence !== finalSequence) {
+              // final remote message hasn't been received yet
+              debug(`channel ${channel.id} waiting for last message ${finalSequence}`);
+              channel._operationWait = new Deferred();
+              channel._remoteCloseWait = true;
+              channel._lastRemoteSequence = finalSequence;
+              await channel._operationWait.promise;
+              debug(`channel ${channel.id} received last message`);
+            }
+            // close down readable part
+            channel.push(null);
+            // wait for any possible remaining data to be sent
+            // CLOSE message should be received after remaining data is sent
+            let finishCb = () => {
+              channel.setState(ChannelStates.CLOSED);
+              this.channels.delete(channel.id);
+              debug(`channel ${channel.id} sending channel close acknowledge`);
+              debug(`... last sequence: ${channel.localSequence}`);
+              let message = Buffer.concat([
+                chunk.slice(0, 4),
+                Buffer.from([ChannelControl.CHANNEL_CLOSE_ACK, 0, 0])
+              ]);
+              message.writeUInt16BE(channel.localSequence, 5);
+              this.push(message);
+            };
+            if (channel.writableFinished) finishCb();
+            else channel.on('finish', finishCb);
+          })();
           break;
         }
         case ChannelControl.CHANNEL_CLOSE_ACK: {
@@ -360,8 +385,20 @@ class ChannelHandler extends stream.Duplex {
             ));
             break;
           }
-          channel.setState(ChannelStates.CLOSED);
-          this.channels.delete(channelId);
+          (async () => {
+            let finalSequence = rest.readUInt16BE(1);
+            if (channel.remoteSequence !== finalSequence) {
+              debug(`channel ${channel.id} waiting for last message ${finalSequence}`);
+              channel._operationWait = new Deferred();
+              channel._remoteCloseWait = true;
+              channel._lastRemoteSequence = finalSequence;
+              await channel._operationWait.promise;
+              debug(`channel ${channel.id} received last message`);
+            }
+            channel.push(null);
+            channel.setState(ChannelStates.CLOSED);
+            this.channels.delete(channelId);
+          })();
           break;
         }
         case ChannelControl.CHANNEL_MESSAGE: {
@@ -400,10 +437,14 @@ class ChannelHandler extends stream.Duplex {
     channel.setState(ChannelStates.CLOSING);
     if (!channel.writableEnded) channel.end();
     let finishCb = () => {
-      this.push(Buffer.concat([
+      debug(`channel ${channel.id} sending close message`);
+      debug(`... last sequence: ${channel.localSequence}`);
+      let message = Buffer.concat([
         channel.idBuf,
-        Buffer.from([0, 0, ChannelControl.CHANNEL_CLOSE])
-      ]));
+        Buffer.from([0, 0, ChannelControl.CHANNEL_CLOSE, 0, 0])
+      ]);
+      message.writeUInt16BE(channel.localSequence, 5);
+      this.push(message);
     };
     if (!channel.writableFinished) channel.on('finish', finishCb);
     else finishCb();
