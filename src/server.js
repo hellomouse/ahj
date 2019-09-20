@@ -10,6 +10,7 @@ const {
 } = require('./protocol.js');
 const constants = require('./constants.js');
 const Session = require('./session.js');
+const random = require('./random.js');
 const SRP_PARAMS = srp.params[2048];
 
 // const ConnectionModes = constants.ConnectionModes;
@@ -297,8 +298,7 @@ class ServerConnection extends EventEmitter {
     let srpB = this.srpServer.computeB();
     this.sessionKey = this.srpServer.computeK();
     // OK (1 byte) + session identifier (4 bytes) + srp B (256 bytes)
-    // TODO: more padding
-    let serverMessage = Buffer.alloc(261);
+    let serverMessage = Buffer.alloc(random.int(261, 1400));
     offset = 0;
     serverMessage[offset++] = constants.ServerHandshake.OK;
     offset += this.sessionId.copy(serverMessage, offset);

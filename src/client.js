@@ -11,6 +11,7 @@ const {
 const constants = require('./constants.js');
 const utils = require('./utils.js');
 const Session = require('./session.js');
+const random = require('./random.js');
 const SRP_PARAMS = srp.params[2048];
 
 const ConnectionModes = constants.ConnectionModes;
@@ -284,9 +285,8 @@ class ClientConnection extends EventEmitter {
        SRP A: 256 bytes
 
        Total: 258 + identity length + 4 if Mode is RESUME */
-    // TODO: pad client handshake message
-    let clientMessage = Buffer.allocUnsafe(258 + this.identity.length +
-      (this.mode === ConnectionModes.RESUME ? 4 : 0));
+    let clientMessage = Buffer.alloc(random.int(258 + this.identity.length +
+      (this.mode === ConnectionModes.RESUME ? 4 : 0), 1400));
     let offset = 0;
     clientMessage[offset++] = this.identity.length; // identity length
     offset += this.identity.copy(clientMessage, offset);
@@ -326,7 +326,7 @@ class ClientConnection extends EventEmitter {
     this.debugLog('no error from server');
     this.sessionId = Buffer.from(serverMessage.slice(1, 5));
     this.sessionIdN = this.sessionId.readUInt32BE();
-    this.srpClient.setB(serverMessage.slice(5));
+    this.srpClient.setB(serverMessage.slice(5, 261));
     this.sessionKey = this.srpClient.computeK();
     // GC the SRP instance
     this.srpClient = null;
