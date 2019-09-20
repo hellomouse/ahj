@@ -39,7 +39,8 @@ class Session extends EventEmitter {
       session: this
     });
     this.channels = this.channelHandler.channels;
-    this.reassembler.pipe(this.channelHandler).pipe(this.disassembler);
+    this.reassembler.pipe(this.channelHandler, { end: false });
+    this.channelHandler.pipe(this.disassembler, { end: false });
     // also emit events on session instance
     for (let event of [
       'localOpenedChannel', 'remoteOpenedChannel', 'channelOpened'
@@ -54,7 +55,7 @@ class Session extends EventEmitter {
     if (this.connections.includes(conn)) throw new Error('Already exists!');
     this.connections.push(conn);
     conn.readStreamWrap = new utils.ConnectionReadStreamWrap(conn);
-    conn.readStreamWrap.pipe(this.reassembler);
+    conn.readStreamWrap.pipe(this.reassembler, { end: false });
     this.emit('addConnection', conn);
   }
 

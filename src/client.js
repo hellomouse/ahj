@@ -199,6 +199,7 @@ class ClientConnection extends EventEmitter {
   /** Called internally on socket close */
   _handleClose() {
     this.setState(ConnectionStates.DISCONNECTED);
+    this.ready = false;
     this.clientNonce = null;
     this.serverNonce = null;
     this.socket = null;
