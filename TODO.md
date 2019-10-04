@@ -17,6 +17,10 @@
   * ability to change random source
 * Somehow do ticking of disassembler properly or just replace it entirely
     with something less weird
+* Allow one endpoint to ask the other to close the connection
+  * if it is only ever the client that closes all of the connections, suspicions
+    may be raised
+* Allow different AEAD ciphers to be used
 * Actual documentation
 * TYPESCRIPT most likely
 * become laughingstock on HN or something
