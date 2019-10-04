@@ -1,6 +1,6 @@
 {
   "name": "ahj",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "American Headset Jack",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "url": "git+https://github.com/hellomouse/ahj.git"
   },
   "author": "hellomouse",
-  "license": "ISC",
+  "license": "MPL-2.0",
   "bugs": {
     "url": "https://github.com/hellomouse/ahj/issues"
   },
@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@hellomouse/eslint-config": "^1.1.4",
-    "eslint": "^6.4.0",
-    "eslint-plugin-jsdoc": "^15.9.2"
+    "eslint": "^6.5.1",
+    "eslint-plugin-jsdoc": "^15.9.9"
   }
 }
