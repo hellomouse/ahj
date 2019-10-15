@@ -4,6 +4,11 @@
 
 /** Represents a Fragment (a part of a message) */
 class Fragment {
+  id: number;
+  index: number;
+  isLast: boolean;
+  data: Buffer;
+  length: number;
   /**
    * The constructor
    * @param {number} id Fragment identifier (0-255)
@@ -11,7 +16,7 @@ class Fragment {
    * @param {boolean} isLast Whether or not this fragment is the last
    * @param {Buffer} data Data
    */
-  constructor(id, index, isLast, data) {
+  constructor(id: number, index: number, isLast: boolean, data: Buffer) {
     this.id = id;
     this.index = index;
     this.isLast = isLast;
@@ -23,7 +28,7 @@ class Fragment {
    * Convert instance to a Buffer
    * @return {Buffer}
    */
-  toBuffer() {
+  toBuffer(): Buffer {
     return Buffer.concat([
       Buffer.from([
         this.id,
@@ -42,7 +47,7 @@ class Fragment {
    * @param {Buffer} buf
    * @return {Fragment}
    */
-  static fromBuffer(buf) {
+  static fromBuffer(buf: Buffer): Fragment {
     let id = buf[0];
     let index = buf[1];
     let length = buf.readUInt16BE(2);
@@ -56,7 +61,7 @@ class Fragment {
    * @param {Buffer} buf
    * @return {Fragment[]} Extracted fragments
    */
-  static fromMany(buf) {
+  static fromMany(buf: Buffer): Fragment[] {
     let offset = 0;
     let ret = [];
     while (offset + 5 < buf.length) {
@@ -73,4 +78,4 @@ class Fragment {
   }
 }
 
-module.exports = Fragment;
+export = Fragment;

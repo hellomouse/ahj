@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-const Fragment = require('./fragment.js');
-const stream = require('stream');
+import Fragment = require('./fragment');
+import stream = require('stream');
 
 let debug;
 if (process.env.DEBUG) debug = require('debug')('ahj:reassembler');
@@ -11,11 +11,18 @@ else debug = () => {};
 
 /** Represents a message of several fragments */
 class PartialMessage {
+  id: number;
+  fragments: any[];
+  hasLastFragment: boolean;
+  currentFragments: number;
+  totalFragments: any;
+  finished: boolean;
+  reassembled: any;
   /**
    * The constructor
    * @param {number} id Message identifier
    */
-  constructor(id) {
+  constructor(id: number) {
     this.id = id;
     /** @type {Fragment[]} */
     this.fragments = [];
@@ -31,7 +38,7 @@ class PartialMessage {
    * @param {Fragment} fragment
    * @return {boolean} True if finished, false if not yet
    */
-  processNewFragment(fragment) {
+  processNewFragment(fragment: Fragment): boolean {
     this.fragments[fragment.index] = fragment;
     this.currentFragments++;
     if (fragment.isLast) {
@@ -49,11 +56,12 @@ class PartialMessage {
 
 /** Reassembles messages from fragments */
 class Reassembler extends stream.Transform {
+  fragmentCache: any[];
   /**
    * The constructor
    * @param {number} [bufferLength=32] Length of internal buffer
    */
-  constructor(bufferLength = 32) {
+  constructor(bufferLength: number = 32) {
     super({ objectMode: true, highWaterMark: bufferLength });
     /** @type {PartialMessage[]} */
     this.fragmentCache = [];
@@ -65,7 +73,7 @@ class Reassembler extends stream.Transform {
    * @param {string} _encoding Not used
    * @param {Function} callback
    */
-  _transform(data, _encoding, callback) {
+  _transform(data: Buffer, _encoding: string, callback: Function) {
     let fragments = Fragment.fromMany(data);
     for (let fragment of fragments) {
       let partial = this.fragmentCache[fragment.id];
@@ -85,7 +93,7 @@ class Reassembler extends stream.Transform {
   }
 }
 
-module.exports = {
+export = {
   PartialMessage,
   Reassembler
 };

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-exports = module.exports = {
+const exporting = {
   ConnectionModes: {
     INIT: Symbol('INIT'),
     RESUME: Symbol('RESUME')
@@ -39,5 +39,7 @@ exports = module.exports = {
   }
 };
 
-exports.ClientHandshake[exports.ConnectionModes.INIT] = exports.ClientHandshake['INIT'];
-exports.ClientHandshake[exports.ConnectionModes.RESUME] = exports.ClientHandshake['RESUME'];
+exporting.ClientHandshake[exporting.ConnectionModes.INIT] = exporting.ClientHandshake['INIT'];
+exporting.ClientHandshake[exporting.ConnectionModes.RESUME] = exporting.ClientHandshake['RESUME'];
+
+export = exporting;

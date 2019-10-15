@@ -2,12 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-const constants = require('./constants.js');
-const stream = require('stream');
+import constants = require('./constants');
+import stream = require('stream');
 const { Deferred, errCode } = require('./utils.js');
-const util = require('util');
+import util = require('util');
 const sleep = util.promisify(setTimeout);
-const debug = require('debug')('ahj:channels');
+import dbg = require('debug');
+const debug = dbg('ahj:channels');
 
 const ChannelStates = constants.ChannelStates;
 const ChannelControl = constants.ChannelControl;
@@ -16,13 +17,26 @@ const ChannelControl = constants.ChannelControl;
 
 /** Represents a data channel */
 class Channel extends stream.Duplex {
+  id: any;
+  idBuf: Buffer;
+  handler: any;
+  session: any;
+  state: symbol;
+  localSequence: number;
+  remoteSequence: number;
+  _remoteCloseWait: boolean;
+  _lastRemoteSequence: any;
+  _operationWait: any;
+  _outOfOrderCache: any[];
+  _shouldPush: boolean;
+  writableEnded: any;
   /**
    * The constructor
    * @param {object} opts
    * @param {number} opts.id Channel identifier
    * @param {ChannelHandler} opts.channelHandler Associated handler
    */
-  constructor(opts) {
+  constructor(opts: { id: number, channelHandler: ChannelHandler }) {
     super({ objectMode: true });
     this.id = opts.id;
     this.idBuf = Buffer.allocUnsafe(2);
@@ -66,7 +80,7 @@ class Channel extends stream.Duplex {
    * Change state of channel
    * @param {symbol} state New state
    */
-  setState(state) {
+  setState(state: symbol) {
     debug(`channel ${this.id} state change ${this.state.description} => ${state.description}`);
     this.state = state;
     this.emit('stateChange', state);
@@ -84,7 +98,7 @@ class Channel extends stream.Duplex {
    * @param {Buffer} data Data to process
    * @return {boolean}
    */
-  _processMessage(sequence, data) {
+  _processMessage(sequence: number, data: Buffer): boolean {
     let ret = true;
     if (sequence === this.remoteSequence) {
       ret = this.push(data);
@@ -120,12 +134,12 @@ class Channel extends stream.Duplex {
    * @param {string} _encoding Unused
    * @param {Function} callback
    */
-  _write(chunk, _encoding, callback) {
+  _write(chunk: Buffer, _encoding: string, callback: Function) {
     if (this.state !== ChannelStates.OPEN) {
       throw errCode('Channel is not open!', 'CHANNEL_NOT_OPEN');
     }
     let sequenceBuf = Buffer.allocUnsafe(2);
-    sequenceBuf.writeUInt16BE(this.localSequence);
+    sequenceBuf.writeUInt16BE(this.localSequence, 0);
     let message = Buffer.concat([
       this.idBuf,
       sequenceBuf,
@@ -146,7 +160,7 @@ class Channel extends stream.Duplex {
    * No backpressuring is considered when sending out-of-band messages
    * @param {Buffer} data
    */
-  sendOobMessage(data) {
+  sendOobMessage(data: Buffer) {
     if (this.state !== ChannelStates.OPEN) {
       throw errCode('Channel is not open!', 'CHANNEL_NOT_OPEN');
     }
@@ -166,12 +180,16 @@ class Channel extends stream.Duplex {
 
 /** Handles messages and splits them to channels */
 class ChannelHandler extends stream.Duplex {
+  channels: Map<any, any>;
+  session: any;
+  _lastChannelId: number;
+  _shouldPush: boolean;
   /**
    * The constructor
    * @param {object} opts
    * @param {Session} opts.session Associated session
    */
-  constructor(opts) {
+  constructor(opts: { session: Session }) {
     super({ objectMode: true });
     /** @type {Map<number, Channel>} */
     this.channels = new Map();
@@ -184,7 +202,7 @@ class ChannelHandler extends stream.Duplex {
    * Get next available channel id
    * @return {number}
    */
-  _getNextChannelId() {
+  _getNextChannelId(): number {
     let ret;
     do {
       ret = this._lastChannelId++;
@@ -200,7 +218,7 @@ class ChannelHandler extends stream.Duplex {
    * Create a new channel
    * @return {Channel}
    */
-  async createChannel() {
+  async createChannel(): Promise<Channel> {
     if (this.channels.size >= 65536) {
       throw errCode('Too many open channels!', 'TOO_MANY_CHANNELS');
     }
@@ -238,12 +256,12 @@ class ChannelHandler extends stream.Duplex {
         // remote end sent CHANNEL_OPEN_NAK, try again in a bit
         debug(`remote rejected channel open for ${id}`);
         await sleep(10); // totally arbitrary number
-        let id = this._getNextChannelId();
+        id = this._getNextChannelId();
         debug(`retrying channel open with new id ${id}`);
         this.channels.delete(channel.id);
         this.channels.set(id, channel);
         channel.id = id;
-        channel.idBuf.writeUInt16BE(id);
+        channel.idBuf.writeUInt16BE(id, 0);
         let message = Buffer.concat([
           channel.idBuf,
           Buffer.from([0, 0, ChannelControl.CHANNEL_OPEN])
@@ -267,9 +285,9 @@ class ChannelHandler extends stream.Duplex {
    * @param {Buffer} chunk
    * @param {string} _encoding Unused
    * @param {Function} callback
-   * @return {undefined}
+   * @return {void}
    */
-  _write(chunk, _encoding, callback) {
+  _write(chunk: Buffer, _encoding: string, callback: Function) {
     if (chunk.length < 4) return callback(); // wat
     let channelId = chunk.readUInt16BE(0);
     let sequence = chunk.readUInt16BE(2);
@@ -437,7 +455,7 @@ class ChannelHandler extends stream.Duplex {
    * Internal method to handle sending channel close message
    * @param {Channel} channel
    */
-  _doChannelClose(channel) {
+  _doChannelClose(channel: Channel) {
     channel.setState(ChannelStates.CLOSING);
     if (!channel.writableEnded) channel.end();
     let finishCb = () => {
@@ -460,14 +478,14 @@ class ChannelHandler extends stream.Duplex {
    * @param {Buffer} data
    * @return {boolean}
    */
-  push(data) {
+  push(data: Buffer): boolean {
     let result = super.push(data);
     if (!result) this._shouldPush = false;
     return result;
   }
 }
 
-module.exports = {
+export = {
   Channel,
   ChannelHandler
 };

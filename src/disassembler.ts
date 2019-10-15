@@ -2,20 +2,27 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-const Fragment = require('./fragment.js');
-const utils = require('./utils.js');
-const random = require('./random.js');
-const stream = require('stream');
+import Fragment = require('./fragment');
+import utils = require('./utils');
+import random = require('./random');
+import stream = require('stream');
 
 let debug;
-if (process.env.DEBUG) debug = require('debug')('ahj:disassembler');
-else debug = () => {};
+if (process.env.DEBUG) {
+  import dbg = require('debug');
+  debug = dbg('ahj:disassembler');
+} else debug = () => {};
 
 /** @typedef {import('./client.js').ClientConnection} ClientConnection */
 /** @typedef {import('./server.js').ServerConnection} ServerConnection */
 
 /** Represents an outgoing message that may be split into fragments */
 class OutgoingMessage {
+  message: any;
+  length: any;
+  id: any;
+  offset: number;
+  fragIndex: number;
   /**
    * The constructor
    * @param {Buffer} message Buffer of original message
@@ -55,6 +62,14 @@ class OutgoingMessage {
 
 /** Disassembles messages into fragments */
 class Disassembler extends stream.Writable {
+  opts: any;
+  connections: any;
+  fragmentIndex: number;
+  fragmentCache: any[];
+  bufferBytes: number;
+  messageBuffer: any;
+  fragmentBufferBytes: number;
+  fragmentBuffer: any;
   /**
    * The constructor
    * @param {ClientConnection[]|ServerConnection[]} connections List of connections
@@ -239,7 +254,7 @@ class Disassembler extends stream.Writable {
   }
 }
 
-module.exports = {
+export = {
   OutgoingMessage,
   Disassembler
 };

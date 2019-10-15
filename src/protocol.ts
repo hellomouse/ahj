@@ -2,18 +2,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-const utils = require('./utils.js');
-const crypto = require('crypto');
+import utils = require('./utils.js');
+import crypto = require('crypto');
+import stream = require('stream')
 
 /** @typedef {import('stream').Stream} Stream */
 
 /** Read n bytes from a stream */
 class StreamConsumer {
+  stream: stream.Stream;
+  iterator: any;
+  chunks: any[];
+  currentLength: number;
+  locked: boolean;
   /**
    * The constructor
    * @param {Stream} stream The stream to read bytes from
    */
-  constructor(stream) {
+  constructor(stream: stream.Stream) {
     this.stream = stream;
     this.iterator = this.stream[Symbol.asyncIterator]();
     this.chunks = [];
@@ -24,7 +30,7 @@ class StreamConsumer {
    * Read the next chunk from the stream and add it to the buffer
    * @return {Buffer} The chunk that was read
    */
-  async readNextChunk() {
+  async readNextChunk(): Promise<Buffer> {
     let next = await this.iterator.next();
     if (next.done) {
       throw utils.errCode('Stream is closed', 'STREAM_CLOSED');
@@ -39,7 +45,7 @@ class StreamConsumer {
    * @param {number} wantedSize
    * @return {Buffer}
    */
-  async read(wantedSize) {
+  async read(wantedSize: number): Promise<Buffer> {
     if (this.locked) {
       throw utils.errCode('An operation is still in progress', 'STREAM_LOCKED');
     }
@@ -63,7 +69,7 @@ class StreamConsumer {
    * @param {number} char
    * @return {Buffer} What was read, including the specified character
    */
-  async readToChar(char) {
+  async readToChar(char: number): Promise<Buffer> {
     if (this.locked) {
       throw utils.errCode('An operation is still in progress', 'STREAM_LOCKED');
     }
@@ -96,12 +102,12 @@ class StreamConsumer {
  * @param {Buffer} message
  * @return {Buffer}
  */
-function aeadEncrypt(key, nonce, message) {
+function aeadEncrypt(key: Buffer, nonce: Buffer, message: Buffer): Buffer {
   let cipher = crypto.createCipheriv(
     'ChaCha20-Poly1305', key, nonce, { authTagLength: 16 }
   );
   let lenBuf = Buffer.alloc(2);
-  lenBuf.writeUInt16BE(message.length);
+  lenBuf.writeUInt16BE(message.length, 0);
   return Buffer.concat([
     cipher.update(lenBuf),
     cipher.update(message),
@@ -117,7 +123,7 @@ function aeadEncrypt(key, nonce, message) {
  * @param {Buffer} consumer
  * @return {Buffer}
  */
-async function aeadDecryptNext(key, nonce, consumer) {
+async function aeadDecryptNext(key: Buffer, nonce: Buffer, consumer: Buffer): Promise<Buffer> {
   let decipher = crypto.createDecipheriv(
     'ChaCha20-Poly1305', key, nonce, { authTagLength: 16 }
   );
@@ -134,7 +140,7 @@ async function aeadDecryptNext(key, nonce, consumer) {
   return out;
 }
 
-module.exports = {
+export = {
   StreamConsumer,
   aeadEncrypt,
   aeadDecryptNext

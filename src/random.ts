@@ -12,7 +12,7 @@
  * @param {number} upper Upper bound
  * @return {number}
  */
-function double(lower, upper) {
+function double(lower: number, upper: number): number {
   return Math.random() * (upper - lower) + lower;
 }
 /**
@@ -21,7 +21,7 @@ function double(lower, upper) {
  * @param {number} upper Upper bound
  * @return {number}
  */
-function int(lower, upper) {
+function int(lower: number, upper: number): number {
   return Math.floor(double(lower, upper));
 }
 
@@ -30,7 +30,7 @@ function int(lower, upper) {
  * @param {any[]} arr List of things to choose from
  * @return {any}
  */
-function fromList(arr) {
+function fromList(arr: any[]): any {
   return arr[int(0, arr.length)];
 }
 
@@ -40,7 +40,7 @@ function fromList(arr) {
  * @param {number} n How many elements to choose
  * @return {any[]}
  */
-function choose(arr, n) {
+function choose(arr: any[], n: number): any[] {
   if (n >= arr.length) return arr;
   let out = [];
   for (let i = 0; i < n; i++) {
@@ -57,7 +57,7 @@ function choose(arr, n) {
  * @param {number} s Standard deviation
  * @return {number}
  */
-function normal(m, s) {
+function normal(m: number, s: number): number {
   let x1 = Math.random();
   let x2 = Math.random();
   return m + s * Math.sqrt(-2 * Math.log(x1)) * Math.cos(2 * Math.PI * x2);
@@ -69,11 +69,11 @@ function normal(m, s) {
  * @param {number} s Standard deviation
  * @return {number}
  */
-function logNormal(m, s) {
+function logNormal(m: number, s: number): number {
   return Math.exp(normal(Math.log(m) + s ** 2, Math.log(1 + s ** 2 / m ** 2)));
 }
 
-module.exports = {
+export = {
   double,
   int,
   fromList,

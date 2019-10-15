@@ -2,20 +2,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-const srp = require('srp-bigint');
-const crypto = require('crypto');
-const EventEmitter = require('events');
-const debug = require('debug')('ahj:client');
-const net = require('net');
+import srp = require('srp-bigint');
+import crypto = require('crypto');
+import EventEmitter = require('events');
+import dbg = require('debug');
+const debug = dbg('ahj:client');
+import net = require('net');
 const {
   StreamConsumer,
   aeadDecryptNext,
   aeadEncrypt
 } = require('./protocol.js');
-const constants = require('./constants.js');
-const utils = require('./utils.js');
-const Session = require('./session.js');
-const random = require('./random.js');
+import constants = require('./constants');
+import utils = require('./utils');
+import Session = require('./session');
+import random = require('./random');
 const SRP_PARAMS = srp.params[2048];
 
 const ConnectionModes = constants.ConnectionModes;
@@ -23,6 +24,14 @@ const ConnectionStates = constants.ConnectionStates;
 
 /** Represents a client */
 class Client extends EventEmitter {
+  host: string;
+  port: number;
+  handshakeKey: Buffer;
+  salt: Buffer;
+  identity: Buffer;
+  password: Buffer;
+  session: Session;
+  sessionOptions: SessionOptions;
   /**
    * The constructor
    * @param {object} opts
@@ -34,7 +43,7 @@ class Client extends EventEmitter {
    * @param {Buffer} opts.password SRP password
    * @param {object} opts.sessionOptions Session options
    */
-  constructor(opts) {
+  constructor(opts: { host: string; port: number; handshakeKey: Buffer; salt: Buffer; identity: Buffer; password: Buffer; sessionOptions: SessionOptions }) {
     super();
     this.host = opts.host;
     this.port = opts.port;
@@ -50,7 +59,7 @@ class Client extends EventEmitter {
    * Adds connection to this.connections and adds event listeners
    * @param {ClientConnection} connection
    */
-  _handleConnect(connection) {
+  _handleConnect(connection: ClientConnection) {
     this.session.addConnection(connection);
     connection.on('close', () => this.session.removeConnection(connection));
   }
@@ -99,6 +108,28 @@ class Client extends EventEmitter {
 
 /** Represents one connection in the session */
 class ClientConnection extends EventEmitter {
+  host: string;
+  port: number;
+  handshakeKey: Buffer;
+  salt: Buffer;
+  identity: Buffer;
+  password: Buffer;
+  mode: symbol;
+  sessionId: Buffer;
+  sessionIdN: any;
+  socket: any;
+  consumer: any;
+  clientMessageCounter: number;
+  serverMessageCounter: number;
+  serverNonce: any;
+  clientNonce: any;
+  srpClient: any;
+  sessionKey: any;
+  state: symbol;
+  socketError: any;
+  localPort: any;
+  ready: boolean;
+  readStreamWrap: any;
   /**
    * The constructor
    * @param {object} opts
@@ -111,7 +142,7 @@ class ClientConnection extends EventEmitter {
    * @param {Buffer} opts.identity SRP identity
    * @param {Buffer} opts.password SRP password
    */
-  constructor(opts) {
+  constructor(opts: { host: string; port: number; mode: symbol; sessionId?: Buffer; handshakeKey: Buffer; salt: Buffer; identity: Buffer; password: Buffer }) {
     super();
     this.host = opts.host;
     this.port = opts.port;
@@ -219,7 +250,7 @@ class ClientConnection extends EventEmitter {
    * @param {string} code Error code (in error.code)
    * @return {Error}
    */
-  destroyWithError(message, code) {
+  destroyWithError(message: string, code?: string) {
     this.debugLog('destroy ' + message);
     let error = new Error(message);
     if (code) error.code = code;
@@ -346,7 +377,7 @@ class ClientConnection extends EventEmitter {
   }
 }
 
-module.exports = {
+export = {
   Client,
   ClientConnection
 };

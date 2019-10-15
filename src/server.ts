@@ -2,19 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-const srp = require('srp-bigint');
-const crypto = require('crypto');
-const EventEmitter = require('events');
-const net = require('net');
+import srp = require('srp-bigint');
+import crypto = require('crypto');
+import EventEmitter = require('events');
+import net = require('net');
 const debug = require('debug')('ahj:server');
 const {
   StreamConsumer,
   aeadDecryptNext,
   aeadEncrypt
 } = require('./protocol.js');
-const constants = require('./constants.js');
-const Session = require('./session.js');
-const random = require('./random.js');
+import constants = require('./constants');
+import Session = require('./session');
+import random = require('./random');
 const SRP_PARAMS = srp.params[2048];
 
 // const ConnectionModes = constants.ConnectionModes;
@@ -24,6 +24,13 @@ const ConnectionStates = constants.ConnectionStates;
 
 /** Represents a server */
 class Server extends EventEmitter {
+  handshakeKey: Buffer;
+  port: number;
+  clients: any;
+  sessionOptions: any;
+  sessions: Map<number, ServerSession>;
+  server: net.Server;
+  connections: Set<ServerConnection>;
   /**
    * The constructor
    * @param {object} opts
@@ -32,7 +39,7 @@ class Server extends EventEmitter {
    * @param {object} opts.clients Client verifiers
    * @param {object} opts.sessionOptions Session options
    */
-  constructor(opts) {
+  constructor(opts: { handshakeKey: Buffer; port: number; clients: any; sessionOptions: any; }) {
     super();
     this.handshakeKey = opts.handshakeKey;
     this.port = opts.port;
@@ -48,7 +55,7 @@ class Server extends EventEmitter {
    * Connection handlers
    * @param {Socket} socket
    */
-  connectionHandler(socket) {
+  connectionHandler(socket: net.Socket) {
     let connection = new ServerConnection(this, {
       socket,
       handshakeKey: this.handshakeKey,
@@ -68,13 +75,17 @@ class Server extends EventEmitter {
 
 /** Represents one session */
 class ServerSession extends Session {
+  connected: boolean;
+  owner: string;
+  sessions: Map<number, ServerSession>;
+
   /**
    * The constructor
    * @param {object} opts
    * @param {string} opts.owner User (by identity) this session belongs to
    * @param {Map<number, ServerSession>} opts.sessions Map of all sessions by id
    */
-  constructor(opts) {
+  constructor(opts: { owner: string; sessions: Map<number, ServerSession> }) {
     super(opts);
     this.connected = true;
     this.owner = opts.owner;
@@ -86,6 +97,26 @@ class ServerSession extends Session {
 
 /** Represents one connection in a session */
 class ServerConnection extends EventEmitter {
+  server: Server;
+  handshakeKey: any;
+  socket: net.Socket;
+  clients: any;
+  sessionId: any;
+  sessionIdN: any;
+  sessions: Map<number, ServerSession>;
+  sessionOptions: any;
+  consumer: any;
+  clientMessageCounter: number;
+  serverMessageCounter: number;
+  serverNonce: any;
+  clientNonce: any;
+  srpServer: any;
+  sessionKey: any;
+  state: symbol;
+  socketError: any;
+  remoteHost: string;
+  ready: boolean;
+  readStreamWrap: any;
   /**
    * The constructor
    * @param {Server} server The server this connection belongs to
@@ -96,7 +127,7 @@ class ServerConnection extends EventEmitter {
    * @param {Map<number, ServerSession>} opts.sessions Map of sessions by id
    * @param {object} opts.sessionOptions Session options
    */
-  constructor(server, opts) {
+  constructor(server: Server, opts: { socket: net.Socket; handshakeKey: Buffer; clients: {}; sessions: Map<number, ServerSession>; sessionOptions: any }) {
     super();
     this.server = server;
     this.handshakeKey = opts.handshakeKey;
@@ -129,7 +160,7 @@ class ServerConnection extends EventEmitter {
    * Log a message with debug()
    * @param {string} message Message to log
    */
-  debugLog(message) {
+  debugLog(message: string) {
     if (!process.env.DEBUG) return;
     debug(`[${this.remoteHost}/${this.sessionIdN}] ${message}`);
   }
@@ -137,7 +168,7 @@ class ServerConnection extends EventEmitter {
    * Set state of connection and emit event
    * @param {string} state One of DISCONNECTED, CONNECTING, HANDSHAKING, or CONNECTED
    */
-  setState(state) {
+  setState(state: string) {
     this.debugLog(`state ${this.state.description} => ${state.description}`);
     this.state = state;
     this.emit('stateChange', state);
@@ -147,7 +178,7 @@ class ServerConnection extends EventEmitter {
    * @param {Buffer} buffer
    * @return {boolean} Whether or not data should continue to be written
    */
-  sendMessage(buffer) {
+  sendMessage(buffer: Buffer): boolean {
     if (this.state !== ConnectionStates.CONNECTED) throw new Error('Not connected');
     if (buffer.length > 65535) throw new Error('Buffer is too long');
     // nonce
@@ -165,7 +196,7 @@ class ServerConnection extends EventEmitter {
    * @param {string} code Error code (in error.code)
    * @return {Error}
    */
-  destroyWithError(message, code) {
+  destroyWithError(message: string, code: string): Error {
     this.debugLog('destroy ' + message);
     let error = new Error(message);
     if (code) error.code = code;
@@ -176,7 +207,7 @@ class ServerConnection extends EventEmitter {
    * Get the next message
    * @return {Buffer}
    */
-  async readMessage() {
+  async readMessage(): Promise<Buffer | boolean> {
     if (this.state !== ConnectionStates.CONNECTED) throw new Error('Not connected');
     // nonce
     let nonce = Buffer.allocUnsafe(12);
@@ -324,7 +355,7 @@ class ServerConnection extends EventEmitter {
   }
 }
 
-module.exports = {
+export = {
   Server,
   ServerSession,
   ServerConnection

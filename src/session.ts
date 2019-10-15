@@ -2,19 +2,38 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-const EventEmitter = require('events');
-const utils = require('./utils.js');
-const { Disassembler } = require('./disassembler.js');
-const { Reassembler } = require('./reassembler.js');
-const { ChannelHandler } = require('./channels.js');
-
+import EventEmitter = require('events');
+import utils = require('./utils');
+import disassembler = require('./disassembler');
+const { Disassembler } = disassembler;
+import reassembler = require('./reassembler');
+const { Reassembler } = reassembler;
+import channels = require('./channels');
+const { ChannelHandler } = channels;
+import client = require('./client');
+import server = require('./server');
 /** @typedef {import('./client.js').ClientConnection} ClientConnection */
 /** @typedef {import('./server.js').ServerConnection} ServerConnection */
 /** @typedef {ClientConnection|ServerConnection} Connection */
 /** @typedef {import('./channels.js').Channel} Channel */
+type Connection = client.ClientConnection | server.ServerConnection
+interface SessionOptions {
+  sessionId: Buffer,
+  sessionIdN: number,
+  disassemblerOptions: any,
+  reassemblerOptions: { bufferLength: number }
+}
 
 /** Represents one session composed of many connections */
 class Session extends EventEmitter {
+  connected: boolean;
+  sessionId: Buffer;
+  sessionIdN: number;
+  connections: any[];
+  disassembler: Disassembler;
+  reassembler: Reassembler;
+  channelHandler: ChannelHandler;
+  channels: any;
   /**
    * The constructor
    * @param {object} opts
@@ -24,7 +43,7 @@ class Session extends EventEmitter {
    * @param {object} opts.reassemblerOptions
    * @param {number} opts.reassemblerOptions.bufferLength
    */
-  constructor(opts) {
+  constructor(opts: SessionOptions) {
     super();
     this.connected = false;
     opts = Object.assign({
@@ -55,7 +74,7 @@ class Session extends EventEmitter {
    * Add a connection to this session
    * @param {Connection} conn
    */
-  addConnection(conn) {
+  addConnection(conn: Connection) {
     if (this.connections.includes(conn)) throw new Error('Already exists!');
     this.connections.push(conn);
     conn.readStreamWrap = new utils.ConnectionReadStreamWrap(conn);
@@ -95,4 +114,4 @@ class Session extends EventEmitter {
   }
 }
 
-module.exports = Session;
+export = Session;

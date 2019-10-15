@@ -3,10 +3,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // random useful stuff
-const stream = require('stream');
-
+import stream = require('stream');
+import client = require('./client');
+import server = require('./server');
 /** @typedef {import('./client.js').ClientConnection} ClientConnection */
 /** @typedef {import('./server.js').ServerConnection} ServerConnection */
+
+interface CustomError extends Error {
+  code: string
+}
 
 /**
  * Create a new Error with a code
@@ -14,19 +19,24 @@ const stream = require('stream');
  * @param {string} code Error code
  * @return {Error}
  */
-function errCode(message, code) {
+function errCode(message: string, code: string) {
   let error = new Error(message);
-  error.code = code;
+  (error as CustomError).code = code;
   return error;
 }
 
 /** Circular buffer implementation */
 class CircularBuffer {
+  size: number;
+  array: any[];
+  count: number;
+  read: any;
+  write: number;
   /**
    * The constructor
    * @param {number} size How large the buffer should be
    */
-  constructor(size) {
+  constructor(size: number) {
     this.size = size;
     this.empty();
   }
@@ -43,7 +53,7 @@ class CircularBuffer {
    * Whether or not the buffer is full
    * @return {boolean}
    */
-  isFull() {
+  isFull(): boolean {
     return this.write === null;
   }
 
@@ -51,7 +61,7 @@ class CircularBuffer {
    * Whether or not the buffer is empty
    * @return {boolean}
    */
-  isEmpty() {
+  isEmpty(): boolean {
     return this.read === null;
   }
 
@@ -60,7 +70,7 @@ class CircularBuffer {
    * @param {any} item
    * @return {boolean} True if added, false if full
    */
-  push(item) {
+  push(item: any): boolean {
     if (this.write === null) return false;
     this.count++;
     this.array[this.write] = item;
@@ -76,7 +86,7 @@ class CircularBuffer {
    * Remove the last item from the buffer
    * @return {any} The item, or null if the buffer is empty
    */
-  pop() {
+  pop(): any {
     if (this.read === null) return null;
     this.count--;
     let ret = this.array[this.read];
@@ -93,7 +103,7 @@ class CircularBuffer {
    * Get the item at the top of the buffer, but don't remove it
    * @return {any}
    */
-  peek() {
+  peek(): any {
     if (this.read === null) return null;
     return this.array[this.read];
   }
@@ -101,12 +111,14 @@ class CircularBuffer {
 
 /** Provides a stream.Readable interface to the connection classes */
 class ConnectionReadStreamWrap extends stream.Readable {
+  connection: client.ClientConnection;
+  lock: boolean;
   /**
    * The constructor
    * @param {ClientConnection|ServerConnection} connection Connection to wrap
    * @param {number} [bufferLength=64] How large the buffer should be
    */
-  constructor(connection, bufferLength = 64) {
+  constructor(connection: client.ClientConnection | server.ServerConnection, bufferLength: number = 64) {
     super({ objectMode: true, highWaterMark: bufferLength });
     this.connection = connection;
     this.lock = false;
@@ -136,6 +148,9 @@ class ConnectionReadStreamWrap extends stream.Readable {
 
 /** Implements a Deferred */
 class Deferred {
+  resolve: any;
+  reject: any;
+  promise: Promise<unknown>;
   /** The constructor */
   constructor() {
     /** @type {Function} */
@@ -150,7 +165,7 @@ class Deferred {
   }
 }
 
-module.exports = {
+export = {
   CircularBuffer,
   ConnectionReadStreamWrap,
   Deferred,
