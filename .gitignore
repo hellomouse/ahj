@@ -68,3 +68,4 @@ serverconfig.json
 *.cpuprofile
 
 *.tsbuildinfo
+lib/*
