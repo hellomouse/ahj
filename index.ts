@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import client = require('./src/client');
-import server = require('./src/server');
+export { Client } from './src/client';
+export { Server } from './src/server';
 
-export = {
-  Client: client.Client,
-  Server: server.Server
-};

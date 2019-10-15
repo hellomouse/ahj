@@ -2,22 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import EventEmitter = require('events');
-import utils = require('./utils');
-import disassembler = require('./disassembler');
-const { Disassembler } = disassembler;
-import reassembler = require('./reassembler');
-const { Reassembler } = reassembler;
-import channels = require('./channels');
-const { ChannelHandler } = channels;
-import client = require('./client');
-import server = require('./server');
+import EventEmitter from 'events';
+import { ConnectionReadStreamWrap } from './utils';
+import { Disassembler } from './disassembler';
+import { Reassembler } from './reassembler';
+import { ChannelHandler } from './channels';
+import { ClientConnection } from './client';
+import { ServerConnection } from './server';
 /** @typedef {import('./client.js').ClientConnection} ClientConnection */
 /** @typedef {import('./server.js').ServerConnection} ServerConnection */
 /** @typedef {ClientConnection|ServerConnection} Connection */
 /** @typedef {import('./channels.js').Channel} Channel */
-type Connection = client.ClientConnection | server.ServerConnection
-interface SessionOptions {
+export type Connection = ClientConnection | ServerConnection
+export interface SessionOptions {
   sessionId: Buffer,
   sessionIdN: number,
   disassemblerOptions: any,
@@ -77,7 +74,7 @@ class Session extends EventEmitter {
   addConnection(conn: Connection) {
     if (this.connections.includes(conn)) throw new Error('Already exists!');
     this.connections.push(conn);
-    conn.readStreamWrap = new utils.ConnectionReadStreamWrap(conn);
+    conn.readStreamWrap = new ConnectionReadStreamWrap(conn);
     conn.readStreamWrap.pipe(this.reassembler, { end: false });
     this.emit('addConnection', conn);
   }
@@ -114,4 +111,4 @@ class Session extends EventEmitter {
   }
 }
 
-export = Session;
+export default Session;

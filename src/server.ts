@@ -2,19 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import srp = require('srp-bigint');
-import crypto = require('crypto');
-import EventEmitter = require('events');
-import net = require('net');
-const debug = require('debug')('ahj:server');
-const {
+import srp from 'srp-bigint';
+import crypto from 'crypto';
+import EventEmitter from 'events';
+import net from 'net';
+import dbg from 'debug';
+const debug = dbg('ahj:server');
+import {
   StreamConsumer,
   aeadDecryptNext,
   aeadEncrypt
-} = require('./protocol.js');
-import constants = require('./constants');
-import Session = require('./session');
-import random = require('./random');
+} from './protocol.js';
+import constants from './constants';
+import Session from './session';
+import * as random from './random';
 const SRP_PARAMS = srp.params[2048];
 
 // const ConnectionModes = constants.ConnectionModes;
@@ -355,7 +356,7 @@ class ServerConnection extends EventEmitter {
   }
 }
 
-export = {
+export {
   Server,
   ServerSession,
   ServerConnection

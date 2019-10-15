@@ -3,9 +3,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // random useful stuff
-import stream = require('stream');
-import client = require('./client');
-import server = require('./server');
+import stream from 'stream';
+import { ClientConnection } from './client';
+import { ServerConnection } from './server';
 /** @typedef {import('./client.js').ClientConnection} ClientConnection */
 /** @typedef {import('./server.js').ServerConnection} ServerConnection */
 
@@ -111,14 +111,14 @@ class CircularBuffer {
 
 /** Provides a stream.Readable interface to the connection classes */
 class ConnectionReadStreamWrap extends stream.Readable {
-  connection: client.ClientConnection;
+  connection: ClientConnection;
   lock: boolean;
   /**
    * The constructor
    * @param {ClientConnection|ServerConnection} connection Connection to wrap
    * @param {number} [bufferLength=64] How large the buffer should be
    */
-  constructor(connection: client.ClientConnection | server.ServerConnection, bufferLength: number = 64) {
+  constructor(connection: ClientConnection | ServerConnection, bufferLength: number = 64) {
     super({ objectMode: true, highWaterMark: bufferLength });
     this.connection = connection;
     this.lock = false;
@@ -165,7 +165,7 @@ class Deferred {
   }
 }
 
-export = {
+export {
   CircularBuffer,
   ConnectionReadStreamWrap,
   Deferred,

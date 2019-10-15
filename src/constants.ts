@@ -42,4 +42,4 @@ const exporting = {
 exporting.ClientHandshake[exporting.ConnectionModes.INIT] = exporting.ClientHandshake['INIT'];
 exporting.ClientHandshake[exporting.ConnectionModes.RESUME] = exporting.ClientHandshake['RESUME'];
 
-export = exporting;
+export default exporting;

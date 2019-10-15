@@ -73,7 +73,7 @@ function logNormal(m: number, s: number): number {
   return Math.exp(normal(Math.log(m) + s ** 2, Math.log(1 + s ** 2 / m ** 2)));
 }
 
-export = {
+export {
   double,
   int,
   fromList,

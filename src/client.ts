@@ -2,21 +2,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import srp = require('srp-bigint');
-import crypto = require('crypto');
-import EventEmitter = require('events');
-import dbg = require('debug');
+import srp from 'srp-bigint';
+import crypto from 'crypto';
+import EventEmitter from 'events';
+import dbg from 'debug';
 const debug = dbg('ahj:client');
-import net = require('net');
-const {
+import net from 'net';
+import {
   StreamConsumer,
   aeadDecryptNext,
   aeadEncrypt
-} = require('./protocol.js');
-import constants = require('./constants');
-import utils = require('./utils');
-import Session = require('./session');
-import random = require('./random');
+} from './protocol';
+import constants from './constants';
+import { errCode } from './utils';
+import Session from './session';
+import { int } from './random';
 const SRP_PARAMS = srp.params[2048];
 
 const ConnectionModes = constants.ConnectionModes;
@@ -85,7 +85,7 @@ class Client extends EventEmitter {
 
   /** Add a connection to the session */
   async addConnection() {
-    if (!this.session.connected) throw utils.errCode('Not connected', 'NOT_CONNECTED');
+    if (!this.session.connected) throw errCode('Not connected', 'NOT_CONNECTED');
     let connection = new ClientConnection({
       host: this.host,
       port: this.port,
@@ -321,7 +321,7 @@ class ClientConnection extends EventEmitter {
        SRP A: 256 bytes
 
        Total: 258 + identity length + 4 if Mode is RESUME */
-    let clientMessage = Buffer.alloc(random.int(258 + this.identity.length +
+    let clientMessage = Buffer.alloc(int(258 + this.identity.length +
       (this.mode === ConnectionModes.RESUME ? 4 : 0), 1400));
     let offset = 0;
     clientMessage[offset++] = this.identity.length; // identity length
@@ -377,7 +377,7 @@ class ClientConnection extends EventEmitter {
   }
 }
 
-export = {
+export {
   Client,
   ClientConnection
 };

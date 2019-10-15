@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import constants = require('./constants');
-import stream = require('stream');
-const { Deferred, errCode } = require('./utils.js');
-import util = require('util');
+import constants from './constants';
+import stream from 'stream';
+import { Deferred, errCode } from './utils';
+import util from 'util';
 const sleep = util.promisify(setTimeout);
-import dbg = require('debug');
+import dbg from 'debug';
 const debug = dbg('ahj:channels');
 
 const ChannelStates = constants.ChannelStates;
@@ -485,7 +485,7 @@ class ChannelHandler extends stream.Duplex {
   }
 }
 
-export = {
+export {
   Channel,
   ChannelHandler
 };

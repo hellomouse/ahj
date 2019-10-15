@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import utils = require('./utils.js');
-import crypto = require('crypto');
-import stream = require('stream')
+import { errCode } from './utils';
+import crypto from 'crypto';
+import stream from 'stream'
 
 /** @typedef {import('stream').Stream} Stream */
 
@@ -33,7 +33,7 @@ class StreamConsumer {
   async readNextChunk(): Promise<Buffer> {
     let next = await this.iterator.next();
     if (next.done) {
-      throw utils.errCode('Stream is closed', 'STREAM_CLOSED');
+      throw errCode('Stream is closed', 'STREAM_CLOSED');
     }
     let chunk = next.value;
     this.currentLength += chunk.length;
@@ -47,7 +47,7 @@ class StreamConsumer {
    */
   async read(wantedSize: number): Promise<Buffer> {
     if (this.locked) {
-      throw utils.errCode('An operation is still in progress', 'STREAM_LOCKED');
+      throw errCode('An operation is still in progress', 'STREAM_LOCKED');
     }
     this.locked = true;
     while (true) {
@@ -71,7 +71,7 @@ class StreamConsumer {
    */
   async readToChar(char: number): Promise<Buffer> {
     if (this.locked) {
-      throw utils.errCode('An operation is still in progress', 'STREAM_LOCKED');
+      throw errCode('An operation is still in progress', 'STREAM_LOCKED');
     }
     this.locked = true;
     // there should only be one item in chunks or fewer when we start
@@ -135,12 +135,12 @@ async function aeadDecryptNext(key: Buffer, nonce: Buffer, consumer: Buffer): Pr
   try {
     decipher.final();
   } catch (err) {
-    throw utils.errCode('Unable to authenticate data', 'AUTHENTICATION_FAILED');
+    throw errCode('Unable to authenticate data', 'AUTHENTICATION_FAILED');
   }
   return out;
 }
 
-export = {
+export {
   StreamConsumer,
   aeadEncrypt,
   aeadDecryptNext

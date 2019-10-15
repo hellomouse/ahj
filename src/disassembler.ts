@@ -2,14 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import Fragment = require('./fragment');
-import utils = require('./utils');
-import random = require('./random');
-import stream = require('stream');
+import Fragment from './fragment';
+import { CircularBuffer } from './utils';
+import { normal, choose } from './random';
+import stream from 'stream';
+import dbg from 'debug';
 
-let debug;
+let debug: dbg.Debugger | (() => void);
 if (process.env.DEBUG) {
-  import dbg = require('debug');
   debug = dbg('ahj:disassembler');
 } else debug = () => {};
 
@@ -93,10 +93,10 @@ class Disassembler extends stream.Writable {
     this.fragmentIndex = 1;
     this.fragmentCache = [];
     this.bufferBytes = 0;
-    this.messageBuffer = new utils.CircularBuffer(opts.bufferLength);
+    this.messageBuffer = new CircularBuffer(opts.bufferLength);
     this.fragmentBufferBytes = 0;
     // contains OutgoingMessage instances
-    this.fragmentBuffer = new utils.CircularBuffer(opts.fragmentBufferLength);
+    this.fragmentBuffer = new CircularBuffer(opts.fragmentBufferLength);
   }
 
   /**
@@ -152,7 +152,7 @@ class Disassembler extends stream.Writable {
     if (perConnection < this.opts.leastBytesPerConn) {
       // we would be sending less than leastBytesPerConn bytes per connection
       let numConnections = Math.ceil(totalBytes / this.opts.leastBytesPerConn);
-      activeConnections = random.choose(activeConnections, numConnections);
+      activeConnections = choose(activeConnections, numConnections);
       // recompute per connection bytes
       perConnection = totalBytes / activeConnections.length;
     }
@@ -162,7 +162,7 @@ class Disassembler extends stream.Writable {
     let dataSent = 0;
     let shouldContinue = true;
     for (let i = 0; i < activeConnections.length; i++) {
-      let allocated = Math.round(random.normal(perConnection, perConnection / 10));
+      let allocated = Math.round(normal(perConnection, perConnection / 10));
       // each data packet can only hold a maximum of 65535 bytes
       if (allocated > 65535) allocated = 65535;
       if (allocated <= 5) continue;
@@ -254,7 +254,7 @@ class Disassembler extends stream.Writable {
   }
 }
 
-export = {
+export {
   OutgoingMessage,
   Disassembler
 };

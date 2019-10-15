@@ -78,4 +78,4 @@ class Fragment {
   }
 }
 
-export = Fragment;
+export default Fragment;

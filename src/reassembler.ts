@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import Fragment = require('./fragment');
-import stream = require('stream');
+import Fragment from './fragment';
+import stream from 'stream';
 
 let debug;
 if (process.env.DEBUG) debug = require('debug')('ahj:reassembler');
@@ -93,7 +93,7 @@ class Reassembler extends stream.Transform {
   }
 }
 
-export = {
+export {
   PartialMessage,
   Reassembler
 };
