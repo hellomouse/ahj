@@ -7,5 +7,8 @@ module.exports = {
     node: true,
     es6: true
   },
-  extends: ['@hellomouse/eslint-config']
+  extends: ['@hellomouse/typescript'],
+  rules: {
+    '@typescript-eslint/explicit-function-return-type': 'off'
+  }
 };
