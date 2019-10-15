@@ -4,14 +4,14 @@
 
 import { errCode, CircularBuffer } from './utils';
 import crypto from 'crypto';
-import stream from 'stream'
+import { Stream } from 'stream'
 
 /** @typedef {import('stream').Stream} Stream */
 
 /** Read n bytes from a stream */
 class StreamConsumer {
-  stream: stream.Stream;
-  iterator: any;
+  stream: Stream;
+  iterator: AsyncIterator<any>;
   chunks: any[];
   currentLength: number;
   locked: boolean;
@@ -19,7 +19,7 @@ class StreamConsumer {
    * The constructor
    * @param {Stream} stream The stream to read bytes from
    */
-  constructor(stream: stream.Stream) {
+  constructor(stream: Stream) {
     this.stream = stream;
     this.iterator = this.stream[Symbol.asyncIterator]();
     this.chunks = [];

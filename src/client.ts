@@ -125,10 +125,10 @@ class ClientConnection extends EventEmitter {
   serverNonce: Buffer | null;
   clientNonce: Buffer | null;
   srpClient: srp.Client | null;
-  sessionKey: any;
+  sessionKey: Buffer | null;
   state: symbol;
-  socketError: any;
-  localPort: any;
+  socketError: Error | null;
+  localPort: number | null;
   ready: boolean;
   readStreamWrap: any;
   /**
@@ -204,7 +204,7 @@ class ClientConnection extends EventEmitter {
     nonce.writeUIntBE(this.clientMessageCounter, 6, 6);
     this.clientMessageCounter++;
     // encrypted message
-    let encrypted = aeadEncrypt(this.sessionKey, nonce, buffer);
+    let encrypted = aeadEncrypt(this.sessionKey!, nonce, buffer);
     return this.ready = this.socket!.write(encrypted);
   }
   /**
@@ -220,7 +220,7 @@ class ClientConnection extends EventEmitter {
     this.serverMessageCounter++;
     // decrypt message
     try {
-      return await aeadDecryptNext(this.sessionKey, nonce, this.consumer!);
+      return await aeadDecryptNext(this.sessionKey!, nonce, this.consumer!);
     } catch (err) {
       switch (err.code) {
         case 'STREAM_CLOSED': return false; // connection ended, do nothing

@@ -18,16 +18,16 @@ const ChannelControl = constants.ChannelControl;
 
 /** Represents a data channel */
 class Channel extends stream.Duplex {
-  id: any;
+  id: number;
   idBuf: Buffer;
-  handler: any;
-  session: any;
+  handler: ChannelHandler;
+  session: Session;
   state: symbol;
   localSequence: number;
   remoteSequence: number;
   _remoteCloseWait: boolean;
-  _lastRemoteSequence: any;
-  _operationWait: any;
+  _lastRemoteSequence: number | null;
+  _operationWait: Deferred | null;
   _outOfOrderCache: any[];
   _shouldPush: boolean;
   writableEnded: any;
@@ -114,7 +114,7 @@ class Channel extends stream.Duplex {
       if (
         this._remoteCloseWait &&
         (this._lastRemoteSequence === this.remoteSequence)
-      ) this._operationWait.resolve();
+      ) this._operationWait!.resolve();
     } else {
       if (this._outOfOrderCache[sequence]) {
         // this should not happen
@@ -181,8 +181,8 @@ class Channel extends stream.Duplex {
 
 /** Handles messages and splits them to channels */
 class ChannelHandler extends stream.Duplex {
-  channels: Map<any, any>;
-  session: any;
+  channels: Map<number, Channel>;
+  session: Session;
   _lastChannelId: number;
   _shouldPush: boolean;
   /**
@@ -193,7 +193,7 @@ class ChannelHandler extends stream.Duplex {
   constructor(opts: { session: Session }) {
     super({ objectMode: true });
     /** @type {Map<number, Channel>} */
-    this.channels = new Map();
+    this.channels = new Map<number, Channel>();
     this.session = opts.session;
     this._lastChannelId = 0;
     this._shouldPush = true;
@@ -329,7 +329,7 @@ class ChannelHandler extends stream.Duplex {
             debug(`... but that channel doesn't exist?`);
             break;
           }
-          channel._operationWait.resolve();
+          channel._operationWait!.resolve();
           break;
         }
         case ChannelControl.CHANNEL_OPEN_NAK: {
@@ -339,7 +339,7 @@ class ChannelHandler extends stream.Duplex {
             debug(`... but that channel doesn't exist?`);
             break;
           }
-          channel._operationWait.reject();
+          channel._operationWait!.reject();
           break;
         }
         case ChannelControl.CHANNEL_CLOSE: {
@@ -371,15 +371,15 @@ class ChannelHandler extends stream.Duplex {
             // wait for any possible remaining data to be sent
             // CLOSE message should be received after remaining data is sent
             let finishCb = () => {
-              channel.setState(ChannelStates.CLOSED);
-              this.channels.delete(channel.id);
-              debug(`channel ${channel.id} sending channel close acknowledge`);
-              debug(`... last sequence: ${channel.localSequence}`);
+              channel!.setState(ChannelStates.CLOSED);
+              this.channels.delete(channel!.id);
+              debug(`channel ${channel!.id} sending channel close acknowledge`);
+              debug(`... last sequence: ${channel!.localSequence}`);
               let message = Buffer.concat([
                 chunk.slice(0, 4),
                 Buffer.from([ChannelControl.CHANNEL_CLOSE_ACK, 0, 0])
               ]);
-              message.writeUInt16BE(channel.localSequence, 5);
+              message.writeUInt16BE(channel!.localSequence, 5);
               this.push(message);
             };
             if (channel.writableFinished) finishCb();
@@ -443,7 +443,7 @@ class ChannelHandler extends stream.Duplex {
         return debug(`Received message for nonexistent channel ${channelId}`);
       }
       let pushCb = () => {
-        channel._processMessage(sequence, rest);
+        channel!._processMessage(sequence, rest);
         callback();
       };
       if (!channel._shouldPush) {
