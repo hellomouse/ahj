@@ -2,10 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+const INIT = Symbol('INIT')
+const RESUME = Symbol('RESUME')
 const exporting = {
   ConnectionModes: {
-    INIT: Symbol('INIT'),
-    RESUME: Symbol('RESUME')
+    INIT,
+    RESUME
   },
   ConnectionStates: {
     INIT: Symbol('INIT'),
@@ -21,6 +23,8 @@ const exporting = {
     CLOSED: Symbol('CLOSED')
   },
   ClientHandshake: {
+    [INIT]: 0,
+    [RESUME]: 1,
     INIT: 0,
     RESUME: 1
   },
@@ -38,8 +42,5 @@ const exporting = {
     CHANNEL_MESSAGE: 5
   }
 };
-
-exporting.ClientHandshake[exporting.ConnectionModes.INIT] = exporting.ClientHandshake['INIT'];
-exporting.ClientHandshake[exporting.ConnectionModes.RESUME] = exporting.ClientHandshake['RESUME'];
 
 export default exporting;

@@ -17,8 +17,8 @@ import constants from './constants';
 import { errCode } from './utils';
 import Session, { SessionOptions } from './session';
 import { int } from './random';
+import { CustomError } from './server';
 const SRP_PARAMS = srp.params[2048];
-
 const ConnectionModes = constants.ConnectionModes;
 const ConnectionStates = constants.ConnectionStates;
 
@@ -70,7 +70,7 @@ class Client extends EventEmitter {
     let connection = new ClientConnection({
       host: this.host,
       port: this.port,
-      mode: constants.ConnectionModes.INIT,
+      mode: constants.ConnectionModes.INIT as ClientHandshakeKeys,
       handshakeKey: this.handshakeKey,
       salt: this.salt,
       identity: this.identity,
@@ -90,7 +90,7 @@ class Client extends EventEmitter {
     let connection = new ClientConnection({
       host: this.host,
       port: this.port,
-      mode: constants.ConnectionModes.RESUME,
+      mode: constants.ConnectionModes.RESUME as ClientHandshakeKeys,
       sessionId: this.session.sessionId,
       handshakeKey: this.handshakeKey,
       salt: this.salt,
@@ -107,6 +107,8 @@ class Client extends EventEmitter {
   }
 }
 
+type ClientHandshakeKeys = keyof typeof constants.ClientHandshake
+
 /** Represents one connection in the session */
 class ClientConnection extends EventEmitter {
   host: string;
@@ -115,7 +117,7 @@ class ClientConnection extends EventEmitter {
   salt: Buffer;
   identity: Buffer;
   password: Buffer;
-  mode: symbol;
+  mode: ClientHandshakeKeys;
   sessionId: Buffer | null;
   sessionIdN: number | null;
   socket: net.Socket | null;
@@ -143,7 +145,7 @@ class ClientConnection extends EventEmitter {
    * @param {Buffer} opts.identity SRP identity
    * @param {Buffer} opts.password SRP password
    */
-  constructor(opts: { host: string; port: number; mode: symbol; sessionId?: Buffer | null; handshakeKey: Buffer; salt: Buffer; identity: Buffer; password: Buffer }) {
+  constructor(opts: { host: string; port: number; mode: ClientHandshakeKeys; sessionId?: Buffer | null; handshakeKey: Buffer; salt: Buffer; identity: Buffer; password: Buffer }) {
     super();
     this.host = opts.host;
     this.port = opts.port;
@@ -171,7 +173,7 @@ class ClientConnection extends EventEmitter {
     this.ready = false;
     this.readStreamWrap = null;
 
-    this.debugLog(`init: mode ${this.mode.description} to ${this.host}:${this.port}`);
+    this.debugLog(`init: mode ${(this.mode as symbol).description} to ${this.host}:${this.port}`);
   }
   /**
    * Log a debug message
@@ -253,7 +255,7 @@ class ClientConnection extends EventEmitter {
    */
   destroyWithError(message: string, code?: string) {
     this.debugLog('destroy ' + message);
-    let error = new Error(message);
+    let error = new CustomError(message);
     if (code) error.code = code;
     this.socket!.destroy(error);
     return error;

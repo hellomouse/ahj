@@ -21,7 +21,8 @@ class StreamConsumer {
    */
   constructor(stream: Stream) {
     this.stream = stream;
-    this.iterator = this.stream[Symbol.asyncIterator]();
+    this.iterator = (this.stream as Stream & {
+      [Symbol.asyncIterator]: any})[Symbol.asyncIterator]();
     this.chunks = [];
     this.currentLength = 0;
     this.locked = false;

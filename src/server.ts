@@ -21,6 +21,13 @@ const SRP_PARAMS = srp.params[2048];
 // const ConnectionModes = constants.ConnectionModes;
 const ConnectionStates = constants.ConnectionStates;
 
+export class CustomError extends Error {
+  code!: string | undefined
+  constructor(...args: any[]) {
+    super(...args)
+  }
+}
+
 /** @typedef {import('net').Socket} Socket */
 
 /** Represents a server */
@@ -169,7 +176,7 @@ class ServerConnection extends EventEmitter {
    * Set state of connection and emit event
    * @param {string} state One of DISCONNECTED, CONNECTING, HANDSHAKING, or CONNECTED
    */
-  setState(state: string) {
+  setState(state: symbol) {
     this.debugLog(`state ${this.state.description} => ${state.description}`);
     this.state = state;
     this.emit('stateChange', state);
@@ -199,7 +206,7 @@ class ServerConnection extends EventEmitter {
    */
   destroyWithError(message: string, code?: string): Error {
     this.debugLog('destroy ' + message);
-    let error = new Error(message);
+    let error = new CustomError(message);
     if (code) error.code = code;
     this.socket.destroy(error);
     return error;
