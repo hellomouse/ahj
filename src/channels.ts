@@ -8,6 +8,7 @@ import { Deferred, errCode } from './utils';
 import util from 'util';
 const sleep = util.promisify(setTimeout);
 import dbg from 'debug';
+import Session from './session';
 const debug = dbg('ahj:channels');
 
 const ChannelStates = constants.ChannelStates;

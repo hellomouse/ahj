@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import srp from 'srp-bigint';
+import * as srp from 'srp-bigint';
 import crypto from 'crypto';
 import EventEmitter from 'events';
 import net from 'net';
@@ -14,7 +14,7 @@ import {
   aeadEncrypt
 } from './protocol.js';
 import constants from './constants';
-import Session from './session';
+import Session, { SessionOptions } from './session';
 import * as random from './random';
 const SRP_PARAMS = srp.params[2048];
 
@@ -28,7 +28,7 @@ class Server extends EventEmitter {
   handshakeKey: Buffer;
   port: number;
   clients: any;
-  sessionOptions: any;
+  sessionOptions: SessionOptions;
   sessions: Map<number, ServerSession>;
   server: net.Server;
   connections: Set<ServerConnection>;
@@ -40,17 +40,17 @@ class Server extends EventEmitter {
    * @param {object} opts.clients Client verifiers
    * @param {object} opts.sessionOptions Session options
    */
-  constructor(opts: { handshakeKey: Buffer; port: number; clients: any; sessionOptions: any; }) {
+  constructor(opts: { handshakeKey: Buffer; port: number; clients: any; sessionOptions: SessionOptions; }) {
     super();
     this.handshakeKey = opts.handshakeKey;
     this.port = opts.port;
     this.clients = opts.clients;
     this.sessionOptions = opts.sessionOptions;
     /** @type {Map<number, ServerSession>} */
-    this.sessions = new Map();
+    this.sessions = new Map<number, ServerSession>();
     this.server = net.createServer(this.connectionHandler.bind(this));
     /** @type {Set<ServerConnection>} */
-    this.connections = new Set();
+    this.connections = new Set<ServerConnection>();
   }
   /**
    * Connection handlers
@@ -86,13 +86,13 @@ class ServerSession extends Session {
    * @param {string} opts.owner User (by identity) this session belongs to
    * @param {Map<number, ServerSession>} opts.sessions Map of all sessions by id
    */
-  constructor(opts: { owner: string; sessions: Map<number, ServerSession> }) {
-    super(opts);
+  constructor(opts: { owner: string; sessions: Map<number, ServerSession>, sessionId?: Buffer, sessionIdN?: number }) {
+    super();
     this.connected = true;
     this.owner = opts.owner;
     this.sessions = opts.sessions;
 
-    this.on('end', () => this.sessions.delete(this.sessionIdN));
+    this.on('end', () => this.sessions.delete(this.sessionIdN!));
   }
 }
 
@@ -102,17 +102,17 @@ class ServerConnection extends EventEmitter {
   handshakeKey: any;
   socket: net.Socket;
   clients: any;
-  sessionId: any;
-  sessionIdN: any;
+  sessionId: Buffer | null;
+  sessionIdN: number | null;
   sessions: Map<number, ServerSession>;
-  sessionOptions: any;
-  consumer: any;
+  sessionOptions: SessionOptions;
+  consumer: StreamConsumer | null;
   clientMessageCounter: number;
   serverMessageCounter: number;
-  serverNonce: any;
-  clientNonce: any;
-  srpServer: any;
-  sessionKey: any;
+  serverNonce: Buffer | null;
+  clientNonce: Buffer | null;
+  srpServer: srp.Server | null;
+  sessionKey: Buffer | null;
   state: symbol;
   socketError: any;
   remoteHost: string;
@@ -128,7 +128,7 @@ class ServerConnection extends EventEmitter {
    * @param {Map<number, ServerSession>} opts.sessions Map of sessions by id
    * @param {object} opts.sessionOptions Session options
    */
-  constructor(server: Server, opts: { socket: net.Socket; handshakeKey: Buffer; clients: {}; sessions: Map<number, ServerSession>; sessionOptions: any }) {
+  constructor(server: Server, opts: { socket: net.Socket; handshakeKey: Buffer; clients: {}; sessions: Map<number, ServerSession>; sessionOptions: SessionOptions }) {
     super();
     this.server = server;
     this.handshakeKey = opts.handshakeKey;
@@ -184,11 +184,11 @@ class ServerConnection extends EventEmitter {
     if (buffer.length > 65535) throw new Error('Buffer is too long');
     // nonce
     let nonce = Buffer.allocUnsafe(12);
-    this.serverNonce.copy(nonce);
+    this.serverNonce!.copy(nonce);
     nonce.writeUIntBE(this.serverMessageCounter, 6, 6);
     this.serverMessageCounter++;
     // encrypted message
-    let encrypted = aeadEncrypt(this.sessionKey, nonce, buffer);
+    let encrypted = aeadEncrypt(this.sessionKey!, nonce, buffer);
     return this.ready = this.socket.write(encrypted);
   }
   /**
@@ -197,7 +197,7 @@ class ServerConnection extends EventEmitter {
    * @param {string} code Error code (in error.code)
    * @return {Error}
    */
-  destroyWithError(message: string, code: string): Error {
+  destroyWithError(message: string, code?: string): Error {
     this.debugLog('destroy ' + message);
     let error = new Error(message);
     if (code) error.code = code;
@@ -212,12 +212,12 @@ class ServerConnection extends EventEmitter {
     if (this.state !== ConnectionStates.CONNECTED) throw new Error('Not connected');
     // nonce
     let nonce = Buffer.allocUnsafe(12);
-    this.clientNonce.copy(nonce);
+    this.clientNonce!.copy(nonce);
     nonce.writeUIntBE(this.clientMessageCounter, 6, 6);
     this.clientMessageCounter++;
     // decrypt message
     try {
-      return await aeadDecryptNext(this.sessionKey, nonce, this.consumer);
+      return await aeadDecryptNext(this.sessionKey!, nonce, this.consumer!);
     } catch (err) {
       switch (err.code) {
         case 'STREAM_CLOSED': return false; // connection ended, do nothing
@@ -232,7 +232,7 @@ class ServerConnection extends EventEmitter {
   /** Internal method called after connection closed */
   _handleClose() {
     // remove connection from sessions
-    let session = this.sessions.get(this.sessionIdN);
+    let session = this.sessions.get(this.sessionIdN!);
     if (!session) return;
     session.removeConnection(this);
   }
@@ -259,7 +259,7 @@ class ServerConnection extends EventEmitter {
     let nonce = await this.consumer.read(12);
     this.clientNonce = nonce.slice(0, 6);
     this.debugLog('received client nonce');
-    let clientMessage;
+    let clientMessage: Buffer | undefined;
     try {
       clientMessage = await aeadDecryptNext(
         this.handshakeKey, nonce, this.consumer
@@ -271,11 +271,11 @@ class ServerConnection extends EventEmitter {
     this.debugLog('received client handshake message');
     this.setState(ConnectionStates.HANDSHAKING);
     let offset = 0;
-    let identityLength = clientMessage[offset++];
-    let identity = clientMessage.slice(offset, offset += identityLength);
-    identity = identity.toString();
-    this.debugLog('received identity ' + identity);
-    let verifier = this.clients[identity];
+    let identityLength = clientMessage![offset++];
+    let identity = clientMessage!.slice(offset, offset += identityLength);
+    let strIdentity = identity.toString();
+    this.debugLog('received identity ' + strIdentity);
+    let verifier = this.clients[strIdentity];
     let serverHandshakeNonce = crypto.randomBytes(12);
     this.serverNonce = serverHandshakeNonce.slice(0, 6);
     this.socket.write(serverHandshakeNonce);
@@ -288,11 +288,11 @@ class ServerConnection extends EventEmitter {
       this.debugLog('client sent invalid identity');
       return;
     }
-    let mode = clientMessage[offset++];
+    let mode = clientMessage![offset++];
     if (mode === constants.ClientHandshake.INIT) {
       while (true) {
         this.sessionId = crypto.randomBytes(4);
-        this.sessionIdN = this.sessionId.readUInt32BE();
+        this.sessionIdN = this.sessionId.readUInt32BE(0);
         let session = this.sessions.get(this.sessionIdN);
         if (session) continue;
         // in the rare case that we have a collision...
@@ -302,7 +302,7 @@ class ServerConnection extends EventEmitter {
           ...this.sessionOptions,
           sessionId: this.sessionId,
           sessionIdN: this.sessionIdN,
-          owner: identity,
+          owner: identity.toString(),
           sessions: this.sessions
         });
         session.addConnection(this);
@@ -312,10 +312,10 @@ class ServerConnection extends EventEmitter {
         break;
       }
     } else if (mode === constants.ClientHandshake.RESUME) {
-      this.sessionId = Buffer.from(clientMessage.slice(offset, offset += 4));
-      this.sessionIdN = this.sessionId.readUInt32BE();
+      this.sessionId = Buffer.from(clientMessage!.slice(offset, offset += 4));
+      this.sessionIdN = this.sessionId.readUInt32BE(0);
       let session = this.sessions.get(this.sessionIdN);
-      if (!session || (session.owner !== identity)) {
+      if (!session || (session.owner !== strIdentity)) {
         this.socket.write(aeadEncrypt(
           this.handshakeKey, serverHandshakeNonce,
           Buffer.from([constants.ServerHandshake.INVALID_SESSION])
@@ -327,7 +327,7 @@ class ServerConnection extends EventEmitter {
       session.addConnection(this);
       this.debugLog('joining session ' + this.sessionIdN);
     }
-    let srpA = clientMessage.slice(offset, offset += 256);
+    let srpA = clientMessage!.slice(offset, offset += 256);
     let srpServerSecret = crypto.randomBytes(32);
     this.srpServer = new srp.Server(SRP_PARAMS, verifier, srpServerSecret);
     this.srpServer.setA(srpA);
@@ -337,7 +337,7 @@ class ServerConnection extends EventEmitter {
     let serverMessage = Buffer.alloc(random.int(261, 1400));
     offset = 0;
     serverMessage[offset++] = constants.ServerHandshake.OK;
-    offset += this.sessionId.copy(serverMessage, offset);
+    offset += this.sessionId!.copy(serverMessage, offset);
     offset += srpB.copy(serverMessage, offset);
     this.socket.write(aeadEncrypt(
       this.handshakeKey, serverHandshakeNonce, serverMessage

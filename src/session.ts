@@ -15,17 +15,17 @@ import { ServerConnection } from './server';
 /** @typedef {import('./channels.js').Channel} Channel */
 export type Connection = ClientConnection | ServerConnection
 export interface SessionOptions {
-  sessionId: Buffer,
-  sessionIdN: number,
-  disassemblerOptions: any,
-  reassemblerOptions: { bufferLength: number }
+  sessionId?: Buffer,
+  sessionIdN?: number,
+  disassemblerOptions?: any,
+  reassemblerOptions?: { bufferLength: number }
 }
 
 /** Represents one session composed of many connections */
 class Session extends EventEmitter {
   connected: boolean;
-  sessionId: Buffer;
-  sessionIdN: number;
+  sessionId: Buffer | null;
+  sessionIdN: number | null;
   connections: any[];
   disassembler: Disassembler;
   reassembler: Reassembler;
@@ -40,7 +40,7 @@ class Session extends EventEmitter {
    * @param {object} opts.reassemblerOptions
    * @param {number} opts.reassemblerOptions.bufferLength
    */
-  constructor(opts: SessionOptions) {
+  constructor(opts?: SessionOptions) {
     super();
     this.connected = false;
     opts = Object.assign({
@@ -52,7 +52,7 @@ class Session extends EventEmitter {
     this.sessionIdN = opts.sessionIdN || null;
     this.connections = [];
     this.disassembler = new Disassembler(this.connections, opts.disassemblerOptions);
-    this.reassembler = new Reassembler(opts.reassemblerOptions.bufferLength);
+    this.reassembler = new Reassembler(opts.reassemblerOptions!.bufferLength);
     // vscode pls this is obvious
     /** @type {ChannelHandler} */
     this.channelHandler = new ChannelHandler({
@@ -83,7 +83,7 @@ class Session extends EventEmitter {
    * Remove a connection from this session
    * @param {Connection} conn
    */
-  removeConnection(conn) {
+  removeConnection(conn: Connection) {
     if (conn.readStreamWrap) conn.readStreamWrap.unpipe(this.reassembler);
     conn.readStreamWrap = null;
     let index = this.connections.indexOf(conn);

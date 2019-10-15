@@ -5,9 +5,11 @@
 import Fragment from './fragment';
 import stream from 'stream';
 
-let debug;
-if (process.env.DEBUG) debug = require('debug')('ahj:reassembler');
-else debug = () => {};
+import dbg from 'debug';
+let debug: dbg.Debugger | (() => void);
+if (process.env.DEBUG) {
+  debug = dbg('ahj:disassembler');
+} else debug = () => {};
 
 /** Represents a message of several fragments */
 class PartialMessage {

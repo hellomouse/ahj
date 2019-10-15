@@ -28,10 +28,10 @@ function errCode(message: string, code: string) {
 /** Circular buffer implementation */
 class CircularBuffer {
   size: number;
-  array: any[];
-  count: number;
-  read: any;
-  write: number;
+  array!: any[];
+  count!: number;
+  read!: number | null;
+  write!: number | null;
   /**
    * The constructor
    * @param {number} size How large the buffer should be
@@ -111,7 +111,7 @@ class CircularBuffer {
 
 /** Provides a stream.Readable interface to the connection classes */
 class ConnectionReadStreamWrap extends stream.Readable {
-  connection: ClientConnection;
+  connection: ClientConnection | ServerConnection;
   lock: boolean;
   /**
    * The constructor

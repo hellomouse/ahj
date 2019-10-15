@@ -7,6 +7,8 @@ import { CircularBuffer } from './utils';
 import { normal, choose } from './random';
 import stream from 'stream';
 import dbg from 'debug';
+import { ClientConnection } from './client';
+import { ServerConnection } from './server';
 
 let debug: dbg.Debugger | (() => void);
 if (process.env.DEBUG) {
@@ -18,9 +20,9 @@ if (process.env.DEBUG) {
 
 /** Represents an outgoing message that may be split into fragments */
 class OutgoingMessage {
-  message: any;
-  length: any;
-  id: any;
+  message: Buffer;
+  length: number;
+  id: number;
   offset: number;
   fragIndex: number;
   /**
@@ -28,7 +30,7 @@ class OutgoingMessage {
    * @param {Buffer} message Buffer of original message
    * @param {number} id Fragment identifier
    */
-  constructor(message, id) {
+  constructor(message: Buffer, id: number) {
     this.message = message;
     this.length = message.length;
     this.id = id;
@@ -60,16 +62,18 @@ class OutgoingMessage {
   }
 }
 
+interface DisassemblerOpts { bufferLength?: number; fragmentBufferLength?: number; leastBytesPerConn?: number; leastFragmentLength?: number }
+
 /** Disassembles messages into fragments */
 class Disassembler extends stream.Writable {
-  opts: any;
-  connections: any;
+  opts: Required<DisassemblerOpts>;
+  connections: ClientConnection[] | ServerConnection[];
   fragmentIndex: number;
-  fragmentCache: any[];
+  fragmentCache: any[] | null[];
   bufferBytes: number;
-  messageBuffer: any;
+  messageBuffer: CircularBuffer;
   fragmentBufferBytes: number;
-  fragmentBuffer: any;
+  fragmentBuffer: CircularBuffer;
   /**
    * The constructor
    * @param {ClientConnection[]|ServerConnection[]} connections List of connections
@@ -81,9 +85,9 @@ class Disassembler extends stream.Writable {
    * @param {number} [opts.leastFragmentLength=16] Don't send fragments shorter than
    *  this amount
    */
-  constructor(connections, opts) {
+  constructor(connections: ClientConnection[] | ServerConnection[], opts: DisassemblerOpts) {
     super({ objectMode: true });
-    this.opts = opts = Object.assign({
+    this.opts = Object.assign({
       bufferLength: 1000,
       fragmentBufferLength: 15,
       leastBytesPerConn: 64,
@@ -93,10 +97,10 @@ class Disassembler extends stream.Writable {
     this.fragmentIndex = 1;
     this.fragmentCache = [];
     this.bufferBytes = 0;
-    this.messageBuffer = new CircularBuffer(opts.bufferLength);
+    this.messageBuffer = new CircularBuffer(this.opts.bufferLength);
     this.fragmentBufferBytes = 0;
     // contains OutgoingMessage instances
-    this.fragmentBuffer = new CircularBuffer(opts.fragmentBufferLength);
+    this.fragmentBuffer = new CircularBuffer(this.opts.fragmentBufferLength);
   }
 
   /**
@@ -104,7 +108,7 @@ class Disassembler extends stream.Writable {
    * @param {Buffer} message
    * @return {boolean} Whether or not data should continue to be written
    */
-  add(message) {
+  add(message: Buffer) {
     if (!(message instanceof Buffer)) throw new Error('Expected buffer');
     if (this.messageBuffer.push(message)) {
       this.bufferBytes += message.length + 5;
@@ -121,7 +125,7 @@ class Disassembler extends stream.Writable {
    * @param {Function} callback
    * @return {undefined}
    */
-  _write(chunk, _encoding, callback) {
+  _write(chunk: Buffer, _encoding: string, callback: any) {
     if (this.add(chunk)) return callback();
     // could not be added to current send buffer, try again when tick occurs
     this.once('dataSent', this._write.bind(this, chunk, _encoding, callback));
@@ -144,7 +148,7 @@ class Disassembler extends stream.Writable {
 
   /** Do stuff */
   tick() {
-    let activeConnections = this.connections.filter(c => c.ready);
+    let activeConnections: ClientConnection[] | ServerConnection[] = (this.connections as any[]).filter((c: ServerConnection | ClientConnection) => c.ready);
     if (!activeConnections.length) return;
     let totalBytes = this.bufferBytes + this.fragmentBufferBytes;
     if (!totalBytes) return;

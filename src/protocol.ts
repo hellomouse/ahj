@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import { errCode } from './utils';
+import { errCode, CircularBuffer } from './utils';
 import crypto from 'crypto';
 import stream from 'stream'
 
@@ -104,7 +104,7 @@ class StreamConsumer {
  */
 function aeadEncrypt(key: Buffer, nonce: Buffer, message: Buffer): Buffer {
   let cipher = crypto.createCipheriv(
-    'ChaCha20-Poly1305', key, nonce, { authTagLength: 16 }
+    'ChaCha20-Poly1305', key.toString(), nonce.toString(), { authTagLength: 16 }
   );
   let lenBuf = Buffer.alloc(2);
   lenBuf.writeUInt16BE(message.length, 0);
@@ -123,9 +123,9 @@ function aeadEncrypt(key: Buffer, nonce: Buffer, message: Buffer): Buffer {
  * @param {Buffer} consumer
  * @return {Buffer}
  */
-async function aeadDecryptNext(key: Buffer, nonce: Buffer, consumer: Buffer): Promise<Buffer> {
+async function aeadDecryptNext(key: Buffer, nonce: Buffer, consumer: StreamConsumer): Promise<Buffer> {
   let decipher = crypto.createDecipheriv(
-    'ChaCha20-Poly1305', key, nonce, { authTagLength: 16 }
+    'ChaCha20-Poly1305', key.toString(), nonce.toString(), { authTagLength: 16 }
   );
   // read and decrypt length bytes
   let length = decipher.update(await consumer.read(2)).readUInt16BE();

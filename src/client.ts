@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import srp from 'srp-bigint';
+import * as srp from 'srp-bigint';
 import crypto from 'crypto';
 import EventEmitter from 'events';
 import dbg from 'debug';
@@ -15,7 +15,7 @@ import {
 } from './protocol';
 import constants from './constants';
 import { errCode } from './utils';
-import Session from './session';
+import Session, { SessionOptions } from './session';
 import { int } from './random';
 const SRP_PARAMS = srp.params[2048];
 
@@ -31,7 +31,7 @@ class Client extends EventEmitter {
   identity: Buffer;
   password: Buffer;
   session: Session;
-  sessionOptions: SessionOptions;
+  sessionOptions?: SessionOptions;
   /**
    * The constructor
    * @param {object} opts
@@ -51,6 +51,7 @@ class Client extends EventEmitter {
     this.salt = opts.salt;
     this.identity = opts.identity;
     this.password = opts.password;
+    this.sessionOptions = undefined;
 
     this.session = new Session(this.sessionOptions);
   }
@@ -115,15 +116,15 @@ class ClientConnection extends EventEmitter {
   identity: Buffer;
   password: Buffer;
   mode: symbol;
-  sessionId: Buffer;
-  sessionIdN: any;
-  socket: any;
-  consumer: any;
+  sessionId: Buffer | null;
+  sessionIdN: number | null;
+  socket: net.Socket | null;
+  consumer: StreamConsumer | null;
   clientMessageCounter: number;
   serverMessageCounter: number;
-  serverNonce: any;
-  clientNonce: any;
-  srpClient: any;
+  serverNonce: Buffer | null;
+  clientNonce: Buffer | null;
+  srpClient: srp.Client | null;
   sessionKey: any;
   state: symbol;
   socketError: any;
@@ -142,7 +143,7 @@ class ClientConnection extends EventEmitter {
    * @param {Buffer} opts.identity SRP identity
    * @param {Buffer} opts.password SRP password
    */
-  constructor(opts: { host: string; port: number; mode: symbol; sessionId?: Buffer; handshakeKey: Buffer; salt: Buffer; identity: Buffer; password: Buffer }) {
+  constructor(opts: { host: string; port: number; mode: symbol; sessionId?: Buffer | null; handshakeKey: Buffer; salt: Buffer; identity: Buffer; password: Buffer }) {
     super();
     this.host = opts.host;
     this.port = opts.port;
@@ -152,7 +153,7 @@ class ClientConnection extends EventEmitter {
     this.password = opts.password;
     this.mode = opts.mode;
     this.sessionId = opts.sessionId || null;
-    this.sessionIdN = this.sessionId && this.sessionId.readUInt32BE();
+    this.sessionIdN = this.sessionId && this.sessionId.readUInt32BE(0);
 
     this.socket = null;
     this.consumer = null;
@@ -176,7 +177,7 @@ class ClientConnection extends EventEmitter {
    * Log a debug message
    * @param {string} message
    */
-  debugLog(message) {
+  debugLog(message: string) {
     if (!process.env.DEBUG) return;
     debug(`[${this.localPort}/${this.sessionIdN}] ${message}`);
   }
@@ -184,7 +185,7 @@ class ClientConnection extends EventEmitter {
    * Set state of connection and emit event
    * @param {symbol} state One of constants.ConnectionState
    */
-  setState(state) {
+  setState(state: symbol) {
     this.debugLog(`state ${this.state.description} => ${state.description}`);
     this.state = state;
     this.emit('stateChange', state);
@@ -194,17 +195,17 @@ class ClientConnection extends EventEmitter {
    * @param {Buffer} buffer
    * @return {boolean} Whether or not data should continue to be written
    */
-  sendMessage(buffer) {
+  sendMessage(buffer: Buffer) {
     if (this.state !== ConnectionStates.CONNECTED) throw new Error('Not connected');
     if (buffer.length > 65535) throw new Error('Buffer is too long');
     // nonce
     let nonce = Buffer.allocUnsafe(12);
-    this.clientNonce.copy(nonce);
+    this.clientNonce!.copy(nonce);
     nonce.writeUIntBE(this.clientMessageCounter, 6, 6);
     this.clientMessageCounter++;
     // encrypted message
     let encrypted = aeadEncrypt(this.sessionKey, nonce, buffer);
-    return this.ready = this.socket.write(encrypted);
+    return this.ready = this.socket!.write(encrypted);
   }
   /**
    * Get the next message
@@ -214,12 +215,12 @@ class ClientConnection extends EventEmitter {
     if (this.state !== ConnectionStates.CONNECTED) throw new Error('Not connected');
     // nonce
     let nonce = Buffer.allocUnsafe(12);
-    this.serverNonce.copy(nonce);
+    this.serverNonce!.copy(nonce);
     nonce.writeUIntBE(this.serverMessageCounter, 6, 6);
     this.serverMessageCounter++;
     // decrypt message
     try {
-      return await aeadDecryptNext(this.sessionKey, nonce, this.consumer);
+      return await aeadDecryptNext(this.sessionKey, nonce, this.consumer!);
     } catch (err) {
       switch (err.code) {
         case 'STREAM_CLOSED': return false; // connection ended, do nothing
@@ -254,7 +255,7 @@ class ClientConnection extends EventEmitter {
     this.debugLog('destroy ' + message);
     let error = new Error(message);
     if (code) error.code = code;
-    this.socket.destroy(error);
+    this.socket!.destroy(error);
     return error;
   }
   /** Connect to the server */
@@ -286,11 +287,11 @@ class ClientConnection extends EventEmitter {
     // into this function if the connection dies during handshake
     await (() => new Promise((resolve, reject) => {
       let cleanUpEventHandlers = () => {
-        this.socket.removeListener('connect', connectHandler);
-        this.socket.removeListener('close', closeHandler);
+        this.socket!.removeListener('connect', connectHandler);
+        this.socket!.removeListener('close', closeHandler);
       };
       let connectHandler = () => {
-        this.localPort = this.socket.localPort;
+        this.localPort = this.socket!.localPort;
         cleanUpEventHandlers();
         resolve();
       };
@@ -298,10 +299,10 @@ class ClientConnection extends EventEmitter {
         cleanUpEventHandlers();
         reject(this.socketError);
       };
-      this.socket.on('connect', connectHandler);
-      this.socket.on('close', closeHandler);
+      this.socket!.on('connect', connectHandler);
+      this.socket!.on('close', closeHandler);
       this.debugLog('socket connecting');
-      this.socket.connect(this.port, this.host);
+      this.socket!.connect(this.port, this.host);
     }))();
     this.debugLog('socket connected');
     this.consumer = new StreamConsumer(this.socket);
@@ -312,7 +313,7 @@ class ClientConnection extends EventEmitter {
     this.srpClient = new srp.Client(
       SRP_PARAMS, this.salt, this.identity, this.password, srpClientSecret
     );
-    let srpA = this.srpClient.computeA();
+    let srpA = this.srpClient!.computeA();
     /* Handshake length
        Identity length: 1 byte
        Identity: 1-255 bytes
@@ -328,7 +329,7 @@ class ClientConnection extends EventEmitter {
     offset += this.identity.copy(clientMessage, offset);
     clientMessage[offset++] = constants.ClientHandshake[this.mode]; // mode
     if (this.mode === ConnectionModes.RESUME) {
-      offset += this.sessionId.copy(clientMessage, offset);
+      offset += this.sessionId!.copy(clientMessage, offset);
     }
     offset += srpA.copy(clientMessage, offset);
     this.socket.write(clientHandshakeNonce);
@@ -361,9 +362,9 @@ class ClientConnection extends EventEmitter {
     }
     this.debugLog('no error from server');
     this.sessionId = Buffer.from(serverMessage.slice(1, 5));
-    this.sessionIdN = this.sessionId.readUInt32BE();
-    this.srpClient.setB(serverMessage.slice(5, 261));
-    this.sessionKey = this.srpClient.computeK();
+    this.sessionIdN = this.sessionId.readUInt32BE(0);
+    this.srpClient!.setB(serverMessage.slice(5, 261));
+    this.sessionKey = this.srpClient!.computeK();
     // GC the SRP instance
     this.srpClient = null;
     this.ready = true;
@@ -373,7 +374,7 @@ class ClientConnection extends EventEmitter {
 
   /** Close this connection */
   close() {
-    this.socket.end();
+    this.socket!.end();
   }
 }
 
