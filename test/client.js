@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-const { Client } = require('../src/client.js');
+const { Client } = require('../lib/client.js');
 const fsP = require('fs').promises;
 const repl = require('repl');
 

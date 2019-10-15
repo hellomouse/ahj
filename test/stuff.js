@@ -11,18 +11,18 @@ const {
   StreamConsumer,
   aeadEncrypt,
   aeadDecryptNext
-} = require('../src/protocol.js');
+} = require('../lib/protocol.js');
 const {
   Client,
   ClientConnection
-} = require('../src/client.js');
+} = require('../lib/client.js');
 const {
   Server,
   Session,
   ServerConnection
-} = require('../src/server.js');
-const { Disassembler } = require('../src/disassembler.js');
-const { Reassembler } = require('../src/reassembler.js');
+} = require('../lib/server.js');
+const { Disassembler } = require('../lib/disassembler.js');
+const { Reassembler } = require('../lib/reassembler.js');
 const SRP_PARAMS = srp.params[2048];
 
 /**

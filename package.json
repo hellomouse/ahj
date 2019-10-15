@@ -2,7 +2,7 @@
   "name": "ahj",
   "version": "0.1.1",
   "description": "American Headset Jack",
-  "main": "index.js",
+  "main": "lib/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
