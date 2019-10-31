@@ -30,7 +30,6 @@ class Channel extends stream.Duplex {
   _operationWait: Deferred | null;
   _outOfOrderCache: any[];
   _shouldPush: boolean;
-  writableEnded: any;
   /**
    * The constructor
    * @param {object} opts
