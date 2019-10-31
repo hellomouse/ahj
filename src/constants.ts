@@ -4,7 +4,8 @@
 
 const INIT = Symbol('INIT')
 const RESUME = Symbol('RESUME')
-const exporting = {
+
+const constants = {
   ConnectionModes: {
     INIT,
     RESUME
@@ -43,4 +44,4 @@ const exporting = {
   }
 };
 
-export default exporting;
+export default constants;
