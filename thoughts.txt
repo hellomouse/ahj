@@ -1,0 +1,74 @@
+meanwhile, at 4:30 am, iczero furiously types away onto irc from a phone...
+
+[04:38:50] <wlp1s1> Ok so strategy pluggable API is easy peasy
+[04:39:08] <wlp1s1> Literally just a class instantiated with a session that has a bunch of methods for doing shit
+[04:39:22] <wlp1s1> Transport API will be more difficult
+[04:40:18] <wlp1s1> I presume all connections will be client -> server
+[04:40:30] <wlp1s1> But transport API shouldn't depend on that
+[04:41:01] <wlp1s1> Given the main client/server thing is more or less that the server should handle multiple sessions while the client doesn't
+[04:42:33] <wlp1s1> So the main thing here will probably be the session api
+[04:43:05] <wlp1s1> Transports will probably end up exclusively interacting with aforementioned session api, maybe a bit with client/server api
+[04:43:16] <wlp1s1> Client side api
+[04:44:06] <wlp1s1> Since sessions are an abstraction that occurs over connections it technically shouldn't be necessary to expose that to the base transport api
+[04:44:23] <wlp1s1> However there's inevitably going to be some type of transport that can do said API stuff somewhere else
+[04:44:39] <wlp1s1> Ehh
+[04:45:19] <wlp1s1> Maybe it would be a better idea to just expose session creation and stuff to transport itself
+[04:45:57] <wlp1s1> Ok I take back what I said earlier
+[04:46:16] <wlp1s1> It makes almost zero sense to not expose handshake stuff like session creation and resumption to transport
+[04:46:30] <wlp1s1> Alright so client transport
+[04:46:50] <wlp1s1> First, you need to (at highest level) establish a connection
+[04:47:11] <wlp1s1> Erm *session
+[04:47:27] <wlp1s1> Well really each connection belongs to a session
+[04:47:36] <wlp1s1> So session establishment, first connection
+[04:47:52] <wlp1s1> Akcvqhcnsgkfnshsvekcjsbsbd
+[04:47:57] <wlp1s1> Ok so callbacks
+[04:48:03] <wlp1s1> A lot of callbacks
+[04:48:10] <wlp1s1> Ok what am I thinking
+[04:48:15] <wlp1s1> No callbacks only promises
+[04:48:24] <wlp1s1> Makes no sense to make connection establishment not a callbacm
+[04:48:34] <wlp1s1> Ok so high level abstraction time
+[04:49:05] <wlp1s1> Client: creates new connection object
+[04:49:13] <wlp1s1> Mode: init
+[04:49:19] <wlp1s1> Options: provided by config
+[04:49:25] <wlp1s1> Connection goes do connect
+[04:49:42] <wlp1s1> Goes contact server
+[04:49:51] <wlp1s1> Does key exchange or whatever transport wants to do
+[04:50:06] <wlp1s1> Now it has session
+[04:50:12] <wlp1s1> Connect promise resolves
+[04:50:31] <wlp1s1> Now Client can create a Session object
+[04:50:41] <wlp1s1> Session id and other stuff is provided
+[04:50:49] <wlp1s1> Initial connection is added to Session
+[04:50:53] <wlp1s1> The thing is functional
+[04:51:33] <wlp1s1> And then to end connection, transport connection marks itself as no longer ready, and deregisters self from session
+[04:52:21] <wlp1s1> Maybe async generators would be useful here...
+[04:52:43] <wlp1s1> Ok so Session object needs to actually be passed to the transport connection
+[04:52:49] <wlp1s1> Touch and hold a clip to pin it. Unpinned clips will be deleted after 1 hour.
+[04:52:53] <wlp1s1> Oops ok
+[04:53:01] <wlp1s1> Welcome to Gboard clipboard, any text you copy will be saved here.Use the edit icon to pin, add or delete clips.Tap on a clip to paste it in the text box.Touch and hold a clip to pin it. Unpinned clips will be deleted after 1 hour.
+[04:53:03] <wlp1s1> Yes
+[04:53:05] <wlp1s1> Ok
+[04:53:39] <wlp1s1> Eh I guess when connect() returns the Client object can call setSession or whatnot
+[04:54:29] <wlp1s1> Anyways Client object doesn't have much to do after session is created, besides maybe creating new connections
+[04:54:55] <wlp1s1> Oh and client object should have a property for created session
+[04:55:01] <wlp1s1> Ok server side
+[04:55:42] <wlp1s1> Server object created with options
+[04:56:03] <wlp1s1> Server creates transport listener object
+[04:56:28] <wlp1s1> Transport listener object listens and basically shits out connection objects
+[04:57:13] <wlp1s1> I mean I guess callbacks are necessary here
+[04:57:45] <wlp1s1> Listener object calls Server new connection method
+[04:57:48] <wlp1s1> Presimably
+[04:58:28] <wlp1s1> The new connection in is either a session leader (created session) or just a normal connection
+[04:58:55] <wlp1s1> That should be passed to new connection callback as an object or something
+[04:59:14] <wlp1s1> New connection callback returns object describing what to do
+[04:59:54] <wlp1s1> Never mind scratch that
+[04:59:56] <wlp1s1> Too weird
+[05:00:22] <wlp1s1> New connection callback on server object shall not exist
+[05:00:34] <wlp1s1> Instead have createSession and getSession
+[05:01:02] <wlp1s1> If connection is new session, call createSession with stuff, otherwise call getSession
+[05:01:57] <wlp1s1> After that, said connection can just attach itself to the session, lol
+[05:02:24] <wlp1s1> Obviously events and shit on Client and Server for new session
+[05:02:37] <wlp1s1> Events on Session objects for new channels etc
+[05:03:11] <wlp1s1> Considering the Session object more or less contains most if not all of the logic of ahj (disasm, reasm, channels, etc etc etc)
+[05:03:19] <wlp1s1> It shouldn't be difficult to build off that
+[05:03:35] <wlp1s1> Gah
+[05:03:39] <wlp1s1> Need to save this lol

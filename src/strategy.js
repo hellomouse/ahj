@@ -3,3 +3,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // @ts-check
+/**
+ * Represents a strategy defining how components of the protocol should behave
+ * @interface
+ */
+class Strategy {
+  // TODO: this
+}
+
+module.exports = {
+  Strategy
+};

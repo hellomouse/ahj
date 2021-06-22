@@ -2,15 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+// @ts-check
 const EventEmitter = require('events');
 const utils = require('./utils.js');
 const { Disassembler } = require('./disassembler.js');
 const { Reassembler } = require('./reassembler.js');
 const { ChannelHandler } = require('./channels.js');
 
-/** @typedef {import('./client.js').ClientConnection} ClientConnection */
-/** @typedef {import('./server.js').ServerConnection} ServerConnection */
-/** @typedef {ClientConnection|ServerConnection} Connection */
+/** @typedef {import('./connection.js')} Connection */
 /** @typedef {import('./channels.js').Channel} Channel */
 
 /** Represents one session composed of many connections */
@@ -34,6 +33,11 @@ class Session extends EventEmitter {
     }, opts);
     this.sessionId = opts.sessionId || null;
     this.sessionIdN = opts.sessionIdN || null;
+    /**
+     * An array of all the active connections associated with this connection
+     * Keeping this as an Array instead of a Set as it is likely more efficient this way
+     * @type {Connection[]}
+     */
     this.connections = [];
     this.disassembler = new Disassembler(this.connections, opts.disassemblerOptions);
     this.reassembler = new Reassembler(opts.reassemblerOptions.bufferLength);

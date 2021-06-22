@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@hellomouse/eslint-config": "^1.1.4",
+    "@types/node": "^12.11.7",
     "eslint": "^6.5.1",
     "eslint-plugin-jsdoc": "^15.9.9"
   }

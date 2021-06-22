@@ -2,25 +2,31 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+// @ts-check
 // random useful stuff
 const stream = require('stream');
 
-/** @typedef {import('./client.js').ClientConnection} ClientConnection */
-/** @typedef {import('./server.js').ServerConnection} ServerConnection */
+/** @typedef {import('./connection.js')} Connection */
 
-/**
- * Create a new Error with a code
- * @param {string} message Error message
- * @param {string} code Error code
- * @return {Error}
- */
-function errCode(message, code) {
-  let error = new Error(message);
-  error.code = code;
-  return error;
+/** An Error object with a code property */
+class ErrorCode extends Error {
+  /**
+   * The constructor
+   * @param {string} message Error message
+   * @param {string} code Error code
+   */
+  constructor(message, code) {
+    super(message);
+    this.code = code;
+  }
 }
 
-/** Circular buffer implementation */
+// eslint-plugin-jsdoc doesn't support @template
+/* eslint-disable jsdoc/no-undefined-types */
+/**
+ * Circular buffer implementation
+ * @template T
+ */
 class CircularBuffer {
   /**
    * The constructor
@@ -57,7 +63,7 @@ class CircularBuffer {
 
   /**
    * Add an item to the buffer
-   * @param {any} item
+   * @param {T} item
    * @return {boolean} True if added, false if full
    */
   push(item) {
@@ -74,7 +80,7 @@ class CircularBuffer {
 
   /**
    * Remove the last item from the buffer
-   * @return {any} The item, or null if the buffer is empty
+   * @return {T} The item, or null if the buffer is empty
    */
   pop() {
     if (this.read === null) return null;
@@ -91,19 +97,20 @@ class CircularBuffer {
 
   /**
    * Get the item at the top of the buffer, but don't remove it
-   * @return {any}
+   * @return {T}
    */
   peek() {
     if (this.read === null) return null;
     return this.array[this.read];
   }
 }
+/* eslint-enable jsdoc/no-undefined-types */
 
 /** Provides a stream.Readable interface to the connection classes */
 class ConnectionReadStreamWrap extends stream.Readable {
   /**
    * The constructor
-   * @param {ClientConnection|ServerConnection} connection Connection to wrap
+   * @param {Connection} connection Connection to wrap
    * @param {number} [bufferLength=64] How large the buffer should be
    */
   constructor(connection, bufferLength = 64) {
@@ -150,9 +157,7 @@ class Deferred {
   }
 }
 
-module.exports = {
-  CircularBuffer,
-  ConnectionReadStreamWrap,
-  Deferred,
-  errCode
-};
+exports.CircularBuffer = CircularBuffer;
+exports.ConnectionReadStreamWrap = ConnectionReadStreamWrap;
+exports.Deferred = Deferred;
+exports.ErrorCode = ErrorCode;

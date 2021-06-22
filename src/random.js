@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+// @ts-check
 // super random things
 // todo: maybe use cryptographically secure stuff instead of Math.random()?
 // const crypto = require('crypto');
@@ -73,11 +74,9 @@ function logNormal(m, s) {
   return Math.exp(normal(Math.log(m) + s ** 2, Math.log(1 + s ** 2 / m ** 2)));
 }
 
-module.exports = {
-  double,
-  int,
-  fromList,
-  choose,
-  normal,
-  logNormal
-};
+exports.double = double;
+exports.int = int;
+exports.fromList = fromList;
+exports.choose = choose;
+exports.normal = normal;
+exports.logNorma = logNormal;

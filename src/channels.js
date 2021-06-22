@@ -2,15 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+// @ts-check
 const constants = require('./constants.js');
 const stream = require('stream');
-const { Deferred, errCode } = require('./utils.js');
+const { Deferred, ErrorCode } = require('./utils.js');
 const util = require('util');
 const sleep = util.promisify(setTimeout);
 const debug = require('debug')('ahj:channels');
 
 const ChannelStates = constants.ChannelStates;
-const ChannelControl = constants.ChannelControl;
+const SessionControl = constants.SessionControl;
 
 /** @typedef {import('./session.js')} Session */
 
@@ -67,7 +68,7 @@ class Channel extends stream.Duplex {
    * @param {symbol} state New state
    */
   setState(state) {
-    debug(`channel ${this.id} state change ${this.state.description} => ${state.description}`);
+    debug(`channel ${this.id} state change ${this.state.toString()} => ${state.toString()}`);
     this.state = state;
     this.emit('stateChange', state);
   }
@@ -103,7 +104,7 @@ class Channel extends stream.Duplex {
     } else {
       if (this._outOfOrderCache[sequence]) {
         // this should not happen
-        throw errCode(
+        throw new ErrorCode(
           `Channel ${this.id} out of order cache overflowed, expect dropped messages`,
           'CHANNEL_OUT_OF_ORDER_QUEUE_OVERFLOWED'
         );
@@ -122,10 +123,10 @@ class Channel extends stream.Duplex {
    */
   _write(chunk, _encoding, callback) {
     if (this.state !== ChannelStates.OPEN) {
-      throw errCode('Channel is not open!', 'CHANNEL_NOT_OPEN');
+      throw new ErrorCode('Channel is not open!', 'CHANNEL_NOT_OPEN');
     }
     let sequenceBuf = Buffer.allocUnsafe(2);
-    sequenceBuf.writeUInt16BE(this.localSequence);
+    sequenceBuf.writeUInt16BE(this.localSequence, 0);
     let message = Buffer.concat([
       this.idBuf,
       sequenceBuf,
@@ -148,11 +149,11 @@ class Channel extends stream.Duplex {
    */
   sendOobMessage(data) {
     if (this.state !== ChannelStates.OPEN) {
-      throw errCode('Channel is not open!', 'CHANNEL_NOT_OPEN');
+      throw new ErrorCode('Channel is not open!', 'CHANNEL_NOT_OPEN');
     }
     this.handler.push(Buffer.concat([
       this.idBuf,
-      Buffer.from([0, 0, ChannelControl.CHANNEL_MESSAGE]),
+      Buffer.from([0, 0, SessionControl.CHANNEL_MESSAGE]),
       data
     ]));
   }
@@ -198,11 +199,11 @@ class ChannelHandler extends stream.Duplex {
 
   /**
    * Create a new channel
-   * @return {Channel}
+   * @return {Promise<Channel>}
    */
   async createChannel() {
     if (this.channels.size >= 65536) {
-      throw errCode('Too many open channels!', 'TOO_MANY_CHANNELS');
+      throw new ErrorCode('Too many open channels!', 'TOO_MANY_CHANNELS');
     }
     let id = this._getNextChannelId();
     let channel = new Channel({
@@ -215,7 +216,7 @@ class ChannelHandler extends stream.Duplex {
       channel.idBuf,
       Buffer.from([
         0, 0, // sequence number 0, control message
-        ChannelControl.CHANNEL_OPEN
+        SessionControl.CHANNEL_OPEN
       ])
     ]);
     debug(`sending channel open message for channel ${id}`);
@@ -238,15 +239,15 @@ class ChannelHandler extends stream.Duplex {
         // remote end sent CHANNEL_OPEN_NAK, try again in a bit
         debug(`remote rejected channel open for ${id}`);
         await sleep(10); // totally arbitrary number
-        let id = this._getNextChannelId();
-        debug(`retrying channel open with new id ${id}`);
+        let newId = this._getNextChannelId();
+        debug(`retrying channel open with new id ${newId}`);
         this.channels.delete(channel.id);
-        this.channels.set(id, channel);
-        channel.id = id;
-        channel.idBuf.writeUInt16BE(id);
+        this.channels.set(newId, channel);
+        channel.id = newId;
+        channel.idBuf.writeUInt16BE(newId, 0);
         let message = Buffer.concat([
           channel.idBuf,
-          Buffer.from([0, 0, ChannelControl.CHANNEL_OPEN])
+          Buffer.from([0, 0, SessionControl.CHANNEL_OPEN])
         ]);
         channel._operationWait = new Deferred();
         this.push(message);
@@ -278,13 +279,13 @@ class ChannelHandler extends stream.Duplex {
     if (sequence === 0) {
       // control message
       switch (rest[0]) {
-        case ChannelControl.CHANNEL_OPEN: {
+        case SessionControl.CHANNEL_OPEN: {
           debug(`received CHANNEL_OPEN for ${channelId}`);
           if (this.channels.has(channelId)) {
             debug(`... but that channel already exists`);
             this.push(Buffer.concat([
               chunk.slice(0, 4), // laziness
-              Buffer.from([ChannelControl.CHANNEL_OPEN_NAK])
+              Buffer.from([SessionControl.CHANNEL_OPEN_NAK])
             ]));
           } else {
             debug(`... creating new channel`);
@@ -296,14 +297,14 @@ class ChannelHandler extends stream.Duplex {
             this.channels.set(channelId, channel);
             this.push(Buffer.concat([
               chunk.slice(0, 4), // laziness
-              Buffer.from([ChannelControl.CHANNEL_OPEN_ACK])
+              Buffer.from([SessionControl.CHANNEL_OPEN_ACK])
             ]));
             this.emit('remoteOpenedChannel', channel);
             this.emit('channelOpened', channel);
           }
           break;
         }
-        case ChannelControl.CHANNEL_OPEN_ACK: {
+        case SessionControl.CHANNEL_OPEN_ACK: {
           debug(`received CHANNEL_OPEN_ACK for ${channelId}`);
           let channel = this.channels.get(channelId);
           if (!channel) {
@@ -313,7 +314,7 @@ class ChannelHandler extends stream.Duplex {
           channel._operationWait.resolve();
           break;
         }
-        case ChannelControl.CHANNEL_OPEN_NAK: {
+        case SessionControl.CHANNEL_OPEN_NAK: {
           debug(`received CHANNEL_OPEN_NAK for ${channelId}`);
           let channel = this.channels.get(channelId);
           if (!channel) {
@@ -323,9 +324,7 @@ class ChannelHandler extends stream.Duplex {
           channel._operationWait.reject();
           break;
         }
-        case ChannelControl.CHANNEL_CLOSE: {
-          // FIXME: attach last sequence number to CLOSE and CLOSE_ACK to prevent
-          // errors and data loss
+        case SessionControl.CHANNEL_CLOSE: {
           debug(`received CHANNEL_CLOSE for ${channelId}`);
           let channel = this.channels.get(channelId);
           if (!channel) {
@@ -358,7 +357,7 @@ class ChannelHandler extends stream.Duplex {
               debug(`... last sequence: ${channel.localSequence}`);
               let message = Buffer.concat([
                 chunk.slice(0, 4),
-                Buffer.from([ChannelControl.CHANNEL_CLOSE_ACK, 0, 0])
+                Buffer.from([SessionControl.CHANNEL_CLOSE_ACK, 0, 0])
               ]);
               message.writeUInt16BE(channel.localSequence, 5);
               this.push(message);
@@ -368,7 +367,7 @@ class ChannelHandler extends stream.Duplex {
           })();
           break;
         }
-        case ChannelControl.CHANNEL_CLOSE_ACK: {
+        case SessionControl.CHANNEL_CLOSE_ACK: {
           debug(`received CHANNEL_CLOSE_ACK for ${channelId}`);
           let channel = this.channels.get(channelId);
           if (!channel) {
@@ -383,7 +382,7 @@ class ChannelHandler extends stream.Duplex {
           if (!channel.writableFinished) {
             debug(`... but that channel doesn't seem to have been closed in the first place?`);
             // possible severe desync
-            this.emit('error', errCode(
+            this.emit('error', new ErrorCode(
               `Unexpected CHANNEL_CLOSE_ACK message for channel ${channelId}`,
               'UNEXPECTED_CHANNEL_CLOSE_ACK'
             ));
@@ -405,7 +404,7 @@ class ChannelHandler extends stream.Duplex {
           })();
           break;
         }
-        case ChannelControl.CHANNEL_MESSAGE: {
+        case SessionControl.CHANNEL_MESSAGE: {
           debug(`received CHANNEL_MESSAGE for ${channelId}`);
           let channel = this.channels.get(channelId);
           if (!channel) {
@@ -415,13 +414,22 @@ class ChannelHandler extends stream.Duplex {
           channel.emit('oobMessage', rest.slice(1));
           break;
         }
+        case SessionControl.CONNECTION_CLOSE_REMOTE: {
+          // a request to close down a connection in the session
+          // channel id is ignored
+          let connectionId = rest.readUIntBE(0, 6);
+          debug(`received CONNECTION_CLOSE_REMOTE for ${connectionId}`);
+          // TODO: implement
+          break;
+        }
       }
       callback();
     } else {
       let channel = this.channels.get(channelId);
       if (!channel) {
         callback();
-        return debug(`Received message for nonexistent channel ${channelId}`);
+        debug(`Received message for nonexistent channel ${channelId}`);
+        return;
       }
       let pushCb = () => {
         channel._processMessage(sequence, rest);
@@ -445,7 +453,7 @@ class ChannelHandler extends stream.Duplex {
       debug(`... last sequence: ${channel.localSequence}`);
       let message = Buffer.concat([
         channel.idBuf,
-        Buffer.from([0, 0, ChannelControl.CHANNEL_CLOSE, 0, 0])
+        Buffer.from([0, 0, SessionControl.CHANNEL_CLOSE, 0, 0])
       ]);
       message.writeUInt16BE(channel.localSequence, 5);
       this.push(message);
@@ -467,7 +475,5 @@ class ChannelHandler extends stream.Duplex {
   }
 }
 
-module.exports = {
-  Channel,
-  ChannelHandler
-};
+exports.Channel = Channel;
+exports.ChannelHandler = ChannelHandler;

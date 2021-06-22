@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+// @ts-check
 const Fragment = require('./fragment.js');
-const utils = require('./utils.js');
+const { CircularBuffer } = require('./utils.js');
 const random = require('./random.js');
 const stream = require('stream');
 
@@ -11,8 +12,7 @@ let debug;
 if (process.env.DEBUG) debug = require('debug')('ahj:disassembler');
 else debug = () => {};
 
-/** @typedef {import('./client.js').ClientConnection} ClientConnection */
-/** @typedef {import('./server.js').ServerConnection} ServerConnection */
+/** @typedef {import('./connection.js')} Connection */
 
 /** Represents an outgoing message that may be split into fragments */
 class OutgoingMessage {
@@ -57,7 +57,7 @@ class OutgoingMessage {
 class Disassembler extends stream.Writable {
   /**
    * The constructor
-   * @param {ClientConnection[]|ServerConnection[]} connections List of connections
+   * @param {Connection[]} connections List of connections
    * @param {object} opts Additional options
    * @param {number} [opts.bufferLength=1000] Buffer length, in number of messages
    * @param {number} [opts.fragmentBufferLength=15] Length of fragment buffer
@@ -74,14 +74,41 @@ class Disassembler extends stream.Writable {
       leastBytesPerConn: 64,
       leastFragmentLength: 16
     }, opts);
+    /**
+     * Connections to be used by the disassembler
+     * @type {Connection[]}
+     */
     this.connections = connections;
+    /**
+     * Next fragment index
+     * @type {number}
+     */
     this.fragmentIndex = 1;
-    this.fragmentCache = [];
+    /**
+     * Array of currently used fragment ids and messages
+     * @type {OutgoingMessage[]}
+     */
+    this.fragmentCache = new Array(256);
+    /**
+     * Circular buffer of messages to be sent
+     * @type {CircularBuffer<Buffer>}
+     */
+    this.messageBuffer = new CircularBuffer(opts.bufferLength);
+    /**
+     * Number of bytes in the message buffer
+     * @type {number}
+     */
     this.bufferBytes = 0;
-    this.messageBuffer = new utils.CircularBuffer(opts.bufferLength);
+    /**
+     * Circular buffer containing half fragments
+     * @type {CircularBuffer<OutgoingMessage>}
+     */
+    this.fragmentBuffer = new CircularBuffer(opts.fragmentBufferLength);
+    /**
+     * Number of bytes in the partially sent fragment buffer
+     * @type {number}
+     */
     this.fragmentBufferBytes = 0;
-    // contains OutgoingMessage instances
-    this.fragmentBuffer = new utils.CircularBuffer(opts.fragmentBufferLength);
   }
 
   /**
@@ -117,8 +144,10 @@ class Disassembler extends stream.Writable {
    * @return {number}
    */
   getNextFragId() {
+    // try 255 times to get an unused fragment id
     for (let i = 0; i < 255; i++) {
       let ret;
+      // check wheteher or not fragment id is being used
       if (!this.fragmentCache[this.fragmentIndex]) ret = this.fragmentIndex;
       this.fragmentIndex++;
       if (this.fragmentIndex > 255) this.fragmentIndex = 1;
@@ -168,6 +197,7 @@ class Disassembler extends stream.Writable {
           used += copied;
           this.fragmentBufferBytes -= copied;
           this.fragmentBuffer.pop();
+          // free fragment id
           this.fragmentCache[next.id] = null;
         } else {
           // don't send stupidly small fragments
@@ -206,13 +236,16 @@ class Disassembler extends stream.Writable {
           // add to fragment buffer
           this.bufferBytes -= next.length + 5;
           this.fragmentBufferBytes += next.length + 5;
-          let m = new OutgoingMessage(next, this.getNextFragId());
+          let message = new OutgoingMessage(next, this.getNextFragId());
           this.messageBuffer.pop();
-          this.fragmentBuffer.push(m);
-          let fragment = m.getFragment(allocated - used - 5);
+          // put message in incomplete messages buffer
+          this.fragmentBuffer.push(message);
+          // occupy fragment id
+          this.fragmentCache[message.id] = message;
+          let fragment = message.getFragment(allocated - used - 5);
           let copied = fragment.toBuffer().copy(buf, used);
           debug(`splitting message to fragment ${fragment.id} (sent ` +
-            `${copied} bytes, stored ${m.remainingLength + 5} bytes)`);
+            `${copied} bytes, stored ${message.remainingLength + 5} bytes)`);
           used += copied;
           this.fragmentBufferBytes -= copied - 5;
           break;
@@ -239,7 +272,5 @@ class Disassembler extends stream.Writable {
   }
 }
 
-module.exports = {
-  OutgoingMessage,
-  Disassembler
-};
+exports.OutgoingMessage = OutgoingMessage;
+exports.Disassembler = Disassembler;
