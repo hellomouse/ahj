@@ -22,6 +22,7 @@ class Session extends EventEmitter {
    * @param {object} opts.disassemblerOptions
    * @param {object} opts.reassemblerOptions
    * @param {number} opts.reassemblerOptions.bufferLength
+   * @param {object} [opts.extra] Extra information associated with the session
    */
   constructor(opts) {
     super();
@@ -34,6 +35,11 @@ class Session extends EventEmitter {
     this.sessionId = opts.sessionId || null;
     this.sessionIdN = opts.sessionIdN || null;
     /**
+     * Extra information about the session that may be stored by Transports or others
+     * @type {object}
+     */
+    this.extra = opts.extra || {};
+    /**
      * An array of all the active connections associated with this connection
      * Keeping this as an Array instead of a Set as it is likely more efficient this way
      * @type {Connection[]}
@@ -41,11 +47,7 @@ class Session extends EventEmitter {
     this.connections = [];
     this.disassembler = new Disassembler(this.connections, opts.disassemblerOptions);
     this.reassembler = new Reassembler(opts.reassemblerOptions.bufferLength);
-    // vscode pls this is obvious
-    /** @type {ChannelHandler} */
-    this.channelHandler = new ChannelHandler({
-      session: this
-    });
+    this.channelHandler = new ChannelHandler({ session: this });
     this.channels = this.channelHandler.channels;
     this.reassembler.pipe(this.channelHandler, { end: false });
     this.channelHandler.pipe(this.disassembler, { end: false });
@@ -95,7 +97,7 @@ class Session extends EventEmitter {
 
   /** End all connections */
   close() {
-    for (let connection of this.connections) connection.socket.end();
+    for (let connection of this.connections) connection.close();
   }
 }
 

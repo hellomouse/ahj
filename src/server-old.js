@@ -147,7 +147,7 @@ class ServerConnection extends EventEmitter {
   }
   /**
    * Set state of connection and emit event
-   * @param {string} state One of DISCONNECTED, CONNECTING, HANDSHAKING, or CONNECTED
+   * @param {symbol} state One of ConnectionStates
    */
   setState(state) {
     this.debugLog(`state ${this.state.toString()} => ${state.toString()}`);
@@ -245,6 +245,7 @@ class ServerConnection extends EventEmitter {
       );
     } catch (err) {
       this.destroyWithError('Client handshake message failed auth');
+      return;
     }
     // client has correct handshake key
     this.debugLog('received client handshake message');

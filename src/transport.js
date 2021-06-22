@@ -7,6 +7,8 @@ const EventEmitter = require('events');
 // const debug = require('debug')('ahj:transport');
 
 /** @typedef {import('./connection.js')} Connection */
+/** @typedef {import('./client.js')} Client */
+/** @typedef {import('./server.js')} Server */
 
 /** Represents a Transport */
 class Transport extends EventEmitter {
@@ -21,12 +23,14 @@ class Transport extends EventEmitter {
   }
 }
 
+/** Represents a Transport for use on the client */
 class ClientTransport extends Transport {
   constructor() {
-    
+
   }
 }
 
+/** Represents a Transport for use on the server */
 class ServerTransport extends Transport {
 
 }

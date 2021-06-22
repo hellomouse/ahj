@@ -221,7 +221,7 @@ class ClientConnection extends EventEmitter {
    * @param {string} [code] Error code (in error.code)
    * @return {Error}
    */
-  destroyWithError(message, code = null) {
+  destroyWithError(message, code) {
     this.debugLog('destroy ' + message);
     let error = new ErrorCode(message, code);
     this.socket.destroy(error);

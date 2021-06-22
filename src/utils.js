@@ -13,9 +13,9 @@ class ErrorCode extends Error {
   /**
    * The constructor
    * @param {string} message Error message
-   * @param {string} code Error code
+   * @param {string|null} code Error code
    */
-  constructor(message, code) {
+  constructor(message, code = null) {
     super(message);
     this.code = code;
   }
@@ -34,7 +34,10 @@ class CircularBuffer {
    */
   constructor(size) {
     this.size = size;
-    this.empty();
+    this.array = new Array(this.size).fill(null);
+    this.count = 0;
+    this.read = null;
+    this.write = 0;
   }
 
   /** Empty the buffer */
@@ -80,7 +83,7 @@ class CircularBuffer {
 
   /**
    * Remove the last item from the buffer
-   * @return {T} The item, or null if the buffer is empty
+   * @return {T|null} The item, or null if the buffer is empty
    */
   pop() {
     if (this.read === null) return null;
@@ -97,7 +100,7 @@ class CircularBuffer {
 
   /**
    * Get the item at the top of the buffer, but don't remove it
-   * @return {T}
+   * @return {T|null}
    */
   peek() {
     if (this.read === null) return null;
@@ -145,11 +148,6 @@ class ConnectionReadStreamWrap extends stream.Readable {
 class Deferred {
   /** The constructor */
   constructor() {
-    /** @type {Function} */
-    this.resolve = null;
-    /** @type {Function} */
-    this.reject = null;
-    /** @type {Promise} */
     this.promise = new Promise((resolve, reject) => {
       this.resolve = resolve;
       this.reject = reject;

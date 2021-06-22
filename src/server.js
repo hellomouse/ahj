@@ -3,3 +3,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // @ts-check
+const EventEmitter = require('events');
+const debug = require('debug')('ahj:server');
+
+class Server extends EventEmitter {
+  // createSession(sessionId)
+}
+
+module.exports = Server;
