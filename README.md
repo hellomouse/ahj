@@ -1,5 +1,9 @@
 # ahj - American Headset Jack, or whatever you want to call it, really
 
+## DEPRECATED
+
+ahj suffers from serious design flaws, including complete lack of flow control and inabiilty to recover from lost frames. The successor to this project is [kinesin-rdt](https://github.com/hellomouse/kinesin/tree/master/kinesin-rdt).
+
 This is a weird obfuscated network protocol that was originally meant to be part
 of a VPN. It was designed with the existence of advanced DPI in mind and is
 meant to be as difficult to identify as possible.
